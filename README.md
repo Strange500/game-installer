@@ -1,0 +1,137 @@
+# Game Installer Web App
+
+This project provides a local web interface to:
+
+- connect to `192.168.0.28` over SSH,
+- discover installer files inside `/mnt/data/media/torrents/game/windows`,
+- display available games in a clean UI,
+- download a selected installer locally,
+- and let the user launch and complete installer UI interaction on the host machine.
+- and launch installers in an isolated virtual desktop session accessible from browser.
+
+## 1) Setup
+
+```bash
+npm install
+cp .env.example .env
+```
+
+Update `.env` with real SSH credentials.
+
+Important: place `.env` in this project root (`games/.env`) because the backend reads from current directory.
+
+## 2) Run
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+For LAN access, set in `.env`:
+
+```bash
+SERVER_HOST=0.0.0.0
+PUBLIC_HOST=<your-server-lan-ip>
+PUBLIC_PROTOCOL=http
+```
+
+This makes the web app and generated noVNC links reachable from other devices on your network.
+
+To use the Angular frontend, build it first:
+
+```bash
+npm run ui:install
+npm run ui:build
+```
+
+Then run backend (`npm run dev`) and it will serve `ui/dist/ui/browser`.
+
+## NixOS quick start (recommended)
+
+From this project directory:
+
+```bash
+nix develop
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Or one-command run (auto-installs npm deps if needed):
+
+```bash
+nix run
+```
+
+The flake provides all runtime tools for isolated installer sessions and sets `NOVNC_WEB_PATH` automatically.
+
+If you run outside `nix develop`, set in `.env`:
+
+```bash
+NOVNC_WEB_PATH=/run/current-system/sw/share/novnc
+```
+
+On some Nix setups, use:
+
+```bash
+NOVNC_WEB_PATH=/run/current-system/sw/share/webapps/novnc
+```
+
+Quick check:
+
+```bash
+ls /run/current-system/sw/share/novnc
+```
+
+## 3) How install flow works
+
+1. UI calls `GET /api/games` to list installer files found remotely via SFTP.
+2. User clicks **Download Installer** for a selected game installer.
+3. Backend downloads installer to `LOCAL_INSTALL_BASE/<game-name>/`.
+4. When ready, UI shows **Launch Installer UI**.
+5. User clicks launch; backend starts isolated Xvfb + VNC + noVNC session.
+6. User opens the provided noVNC URL and completes installer prompts in browser.
+
+Download progress is exposed in session state and shown in the UI progress bar.
+
+## API endpoints
+
+- `GET /api/health`
+- `GET /api/games`
+- `POST /api/install` body: `{ "remotePath": "...", "gameName": "..." }`
+- `GET /api/install/:sessionId`
+- `GET /api/install/active`
+- `POST /api/install/:sessionId/launch`
+- `GET /api/install/:sessionId/logs` (tails of xvfb/x11vnc/websockify/installer logs)
+
+## Notes
+
+- Installer runs on the same machine where Node.js server runs, but in an isolated desktop session.
+- The browser connects to this isolated desktop through noVNC.
+
+## Isolated session dependencies (Linux host)
+
+Install these packages on the server host:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y xvfb x11vnc websockify novnc openbox wine
+```
+
+`openbox` and `wine` may be replaced based on your environment.
+
+On NixOS, you can skip manual package install by using `flake.nix` in this repo.
+
+## Debugging noVNC connection issues
+
+1. Set `LOG_LEVEL=debug` in `.env`.
+2. Restart server.
+3. Start installer session and click **Show Session Logs** in UI.
+4. Or use API directly:
+
+```bash
+curl -s http://localhost:3000/api/install/<sessionId>/logs
+```
+
+This helps identify whether x11vnc, websockify, or wine/installer failed.

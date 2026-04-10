@@ -1,0 +1,250 @@
+:root {
+  --bg: #f6f7fb;
+  --panel: rgba(255, 255, 255, 0.86);
+  --text: #151922;
+  --muted: #5f6b85;
+  --brand: #0f766e;
+  --brand-strong: #0a5c57;
+  --accent: #f59e0b;
+  --line: #d9dfec;
+  --shadow: 0 20px 40px rgba(25, 33, 61, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Manrope", sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at 10% 20%, #e8fff9, transparent 36%),
+    radial-gradient(circle at 90% 10%, #fff4da, transparent 34%), var(--bg);
+  overflow-x: hidden;
+}
+
+.bg-shape {
+  position: fixed;
+  border-radius: 999px;
+  filter: blur(60px);
+  z-index: -1;
+}
+
+.bg-shape-1 {
+  width: 320px;
+  height: 320px;
+  background: rgba(15, 118, 110, 0.18);
+  top: -80px;
+  left: -80px;
+}
+
+.bg-shape-2 {
+  width: 380px;
+  height: 380px;
+  background: rgba(245, 158, 11, 0.16);
+  right: -80px;
+  bottom: -120px;
+}
+
+.app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+
+.hero {
+  animation: fadeIn 0.55s ease;
+}
+
+.eyebrow {
+  margin: 0;
+  letter-spacing: 0.14em;
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+h1 {
+  margin: 0.35rem 0 0.75rem;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.7rem, 4vw, 2.7rem);
+  line-height: 1.06;
+}
+
+.subhead {
+  margin: 0;
+  color: var(--muted);
+  max-width: 66ch;
+}
+
+.hero-actions {
+  margin-top: 1.1rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 0.82rem;
+  color: var(--muted);
+  background: #fff;
+}
+
+.panel {
+  margin-top: 1.2rem;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  border-radius: 20px;
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.muted {
+  margin: 0;
+  color: var(--muted);
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.game-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  animation: cardIn 0.35s ease;
+}
+
+.game-title {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.game-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.installer-label {
+  font-size: 0.77rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+
+.installer-select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  padding: 0.5rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 700;
+  transition: transform 0.15s ease, opacity 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  color: #fff;
+  background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+}
+
+.btn-secondary {
+  color: #fff;
+  background: linear-gradient(135deg, #1f2937, #111827);
+}
+
+.btn-accent {
+  color: #111827;
+  background: linear-gradient(135deg, #fbbf24, var(--accent));
+}
+
+.session-box {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 0.9rem;
+  color: var(--muted);
+  background: #fff;
+}
+
+.session-state {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.session-progress {
+  margin: 0.5rem 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 700px) {
+  .app {
+    padding: 1.1rem 0.8rem 2rem;
+  }
+
+  .hero-actions {
+    flex-wrap: wrap;
+  }
+}

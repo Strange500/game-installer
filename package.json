@@ -1,0 +1,19 @@
+{
+  "name": "game-installer-web",
+  "version": "1.0.0",
+  "description": "Web UI to browse and install games from a remote SSH server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "ui:install": "npm --prefix ui install",
+    "ui:build": "npm --prefix ui run build",
+    "build": "npm run ui:build"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ssh2-sftp-client": "^11.0.0",
+    "uuid": "^9.0.1"
+  }
+}
