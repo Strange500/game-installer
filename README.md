@@ -114,7 +114,7 @@ Example `flake.nix` (host config):
 }
 ```
 
-The service copies app sources into `/var/lib/game-installer/app`, installs runtime npm deps with `npm ci --omit=dev`, and runs `server.js` via systemd.
+The module now runs an immutable packaged app (built with `buildNpmPackage`) and starts `server.js` directly from the Nix store, so startup does not run `npm ci` and avoids runtime permission issues.
 
 Useful commands:
 
