@@ -66,6 +66,64 @@ nix run
 
 The flake provides all runtime tools for isolated installer sessions and sets `NOVNC_WEB_PATH` automatically.
 
+## NixOS module (system service)
+
+This flake now exports a NixOS module at:
+
+- `nixosModules.default`
+- `nixosModules.game-installer`
+
+Example `flake.nix` (host config):
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    game-installer.url = "github:<you>/<repo>";
+  };
+
+  outputs = { self, nixpkgs, game-installer, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        game-installer.nixosModules.default
+        ({ ... }: {
+          services.game-installer = {
+            enable = true;
+            openFirewall = true;
+            host = "0.0.0.0";
+            port = 3000;
+
+            # Keep secrets in an external file with chmod 600
+            envFile = "/run/secrets/game-installer.env";
+
+            environment = {
+              SSH_HOST = "192.168.0.28";
+              SSH_PORT = "22";
+              SSH_USERNAME = "games";
+              PUBLIC_HOST = "192.168.0.138";
+              PUBLIC_PROTOCOL = "http";
+              REMOTE_GAMES_DIR = "/mnt/data/media/torrents/game/windows";
+              LOG_LEVEL = "info";
+            };
+          };
+        })
+      ];
+    };
+  };
+}
+```
+
+The service copies app sources into `/var/lib/game-installer/app`, installs runtime npm deps with `npm ci --omit=dev`, and runs `server.js` via systemd.
+
+Useful commands:
+
+```bash
+sudo systemctl status game-installer
+sudo journalctl -u game-installer -f
+curl -s http://127.0.0.1:3000/api/health
+```
+
 If you run outside `nix develop`, set in `.env`:
 
 ```bash
