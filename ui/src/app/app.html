@@ -1,0 +1,75 @@
+<main class="app">
+  <header class="hero">
+    <p class="eyebrow">LAN GAME DEPLOYMENT</p>
+    <h1>Install games from your server in minutes</h1>
+    <p class="subhead">Browse available installers, start a package copy, then complete setup in isolated web-accessed desktop.</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary" (click)="fetchGames()" [disabled]="loading">Refresh Library</button>
+      <span class="pill">{{ status }}</span>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Available Games</h2>
+      <p class="muted">{{ gameCountLabel }}</p>
+    </div>
+
+    <p *ngIf="remoteWarning" class="warn">{{ remoteWarning }}</p>
+    <p *ngIf="errorMessage" class="muted">{{ errorMessage }}</p>
+
+    <div class="games-grid" *ngIf="games.length">
+      <article class="game-card" *ngFor="let game of games; trackBy: trackByGameId">
+        <h3 class="game-title">{{ game.name }}</h3>
+        <p class="game-meta">{{ game.installers.length }} option(s) • source: {{ game.sourceType }}</p>
+        <label class="installer-label">Installer file</label>
+        <select class="installer-select" [value]="selectedInstaller[game.id] || ''" (change)="onInstallerSelect(game.id, $event)">
+          <option *ngFor="let installer of game.installers" [value]="installer.sourcePath">
+            {{ installer.fileName }} ({{ formatBytes(installer.size) }})
+          </option>
+        </select>
+        <button class="btn btn-secondary" (click)="startInstall(game)" [disabled]="loading">Download Installer</button>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Install Session</h2>
+    </div>
+
+    <div class="session-box" *ngIf="session; else noSessionTpl">
+      <p class="session-state">State: {{ session.state }}</p>
+      <p class="session-progress">{{ session.progress }}</p>
+      <p class="muted">Install directory: {{ session.installDir || 'n/a' }}</p>
+      <p class="muted">Installer file: {{ session.localInstallerPath || 'n/a' }}</p>
+      <div *ngIf="session.download" class="progress-wrap">
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="session.download.percent || 0"></div>
+        </div>
+        <p class="muted progress-text">
+          Download: {{ formatBytes(session.download.transferredBytes || 0) }}
+          <span *ngIf="session.download.totalBytes"> / {{ formatBytes(session.download.totalBytes || 0) }}</span>
+          <span *ngIf="session.download.percent !== null && session.download.percent !== undefined"> ({{ session.download.percent }}%)</span>
+        </p>
+      </div>
+      <p class="muted" *ngIf="session.remoteUiUrl">
+        Isolated installer UI:
+        <a [href]="session.remoteUiUrl" target="_blank" rel="noopener noreferrer">Open remote installer desktop</a>
+      </p>
+
+      <div class="hero-actions" *ngIf="session.state === 'awaiting_user'">
+        <button class="btn btn-accent" (click)="launchInstaller()" [disabled]="loading">Launch Installer UI</button>
+      </div>
+
+      <div class="hero-actions" *ngIf="session.runtime?.runtimeDir">
+        <button class="btn btn-secondary" (click)="loadLogs()" [disabled]="loading">Show Session Logs</button>
+      </div>
+      <pre class="logs" *ngIf="sessionLogs">{{ sessionLogs }}</pre>
+    </div>
+  </section>
+</main>
+
+<ng-template #noSessionTpl>
+  <div class="session-box"><p>No active install session</p></div>
+</ng-template>
