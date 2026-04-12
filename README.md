@@ -47,6 +47,8 @@ npm run ui:build
 
 Then run backend (`npm run dev`) and it will serve `ui/dist/ui/browser`.
 
+Legacy `web/` fallback UI is no longer served by the backend.
+
 ## NixOS quick start (recommended)
 
 From this project directory:

@@ -8,7 +8,6 @@ function createApp({ installService, log, healthInfo }) {
   app.use(express.json());
 
   app.use(express.static(path.join(__dirname, "..", "ui", "dist", "ui", "browser")));
-  app.use(express.static(path.join(__dirname, "..", "web")));
 
   app.use("/api", createApiRouter({ installService, log, healthInfo }));
 
@@ -23,7 +22,9 @@ function createApp({ installService, log, healthInfo }) {
     const angularIndexPath = path.join(__dirname, "..", "ui", "dist", "ui", "browser", "index.html");
     if (existsSync(angularIndexPath)) return res.sendFile(angularIndexPath);
 
-    return res.sendFile(path.join(__dirname, "..", "web", "index.html"));
+    return res.status(503).json({
+      error: "Angular frontend build not found. Run 'npm run ui:build' before starting the server."
+    });
   });
 
   return app;
