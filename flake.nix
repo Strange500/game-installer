@@ -23,7 +23,7 @@
             installPhase = ''
               runHook preInstall
               mkdir -p "$out"
-              cp -r server.js package.json package-lock.json web ui "$out"/
+              cp -r server.js package.json package-lock.json backend web ui "$out"/
               cp -r node_modules "$out"/
               runHook postInstall
             '';
@@ -60,13 +60,23 @@
               set -euo pipefail
               export LOCAL_LIBRARY_DIR="$PWD"
               export LOCAL_INSTALL_BASE="$PWD/installed-games"
-              export SESSION_RUNTIME_BASE="${XDG_RUNTIME_DIR:-/tmp}/game-installer-sessions"
+              export SESSION_RUNTIME_BASE="''${XDG_RUNTIME_DIR:-/tmp}/game-installer-sessions"
               export NOVNC_WEB_PATH="${pkgs.novnc}/share/novnc"
               if [ ! -d "$NOVNC_WEB_PATH" ]; then
                 export NOVNC_WEB_PATH="${pkgs.novnc}/share/webapps/novnc"
               fi
               export PATH="${pkgs.python3Packages.websockify}/bin:${pkgs.x11vnc}/bin:${pkgs.xorg.xorgserver}/bin:${pkgs.openbox}/bin:${pkgs.wineWowPackages.stable}/bin:$PATH"
               mkdir -p "$LOCAL_INSTALL_BASE" "$SESSION_RUNTIME_BASE"
+
+              if [ -f "$PWD/server.js" ]; then
+                if [ ! -f "$PWD/ui/dist/ui/browser/index.html" ]; then
+                  echo "Angular build not found. Bootstrapping UI (npm install + npm run ui:build)..."
+                  ${pkgs.nodejs_22}/bin/npm install
+                  ${pkgs.nodejs_22}/bin/npm run ui:build
+                fi
+                exec ${pkgs.nodejs_22}/bin/node "$PWD/server.js"
+              fi
+
               exec ${pkgs.nodejs_22}/bin/node ${gameInstallerPackage}/server.js
             '');
           };
