@@ -13,6 +13,24 @@
       (flake-utils.lib.eachDefaultSystem (system:
         let
           pkgs = import nixpkgs { inherit system; };
+          uiPackage = pkgs.buildNpmPackage {
+            pname = "game-installer-ui";
+            version = "1.0.0";
+            src = self + "/ui";
+            npmDepsHash = "sha256-VeT68X0NCg4xKg86f+dMtS8LrNvypJsGDP4Qi6+FzXs=";
+            CI = "1";
+            NG_CLI_ANALYTICS = "false";
+
+            npmBuildScript = "build";
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p "$out/dist"
+              cp -r dist/ui "$out/dist/"
+              runHook postInstall
+            '';
+          };
+
           gameInstallerPackage = pkgs.buildNpmPackage {
             pname = "game-installer-web";
             version = "1.0.0";
@@ -24,6 +42,9 @@
               runHook preInstall
               mkdir -p "$out"
               cp -r server.js package.json package-lock.json backend web ui "$out"/
+              rm -rf "$out/ui/dist"
+              mkdir -p "$out/ui/dist"
+              cp -r ${uiPackage}/dist/ui "$out/ui/dist/"
               cp -r node_modules "$out"/
               runHook postInstall
             '';
