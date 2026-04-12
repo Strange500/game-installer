@@ -98,6 +98,33 @@ function createRuntimeService(config, autoNoVncPath, log) {
     ];
   }
 
+  function resolveNoVncWeb(candidates) {
+    const entryCandidates = ["vnc.html", "vnc_lite.html", "index.html"];
+    const checked = [];
+
+    for (const candidate of candidates) {
+      if (!candidate || !fsNative.existsSync(candidate)) continue;
+
+      for (const entryFile of entryCandidates) {
+        const entryPath = path.join(candidate, entryFile);
+        checked.push(entryPath);
+        if (fsNative.existsSync(entryPath)) {
+          return {
+            webPath: candidate,
+            entryFile,
+            checked
+          };
+        }
+      }
+    }
+
+    return {
+      webPath: null,
+      entryFile: null,
+      checked
+    };
+  }
+
   async function waitForPortOpen(port, timeoutMs = 12000) {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
@@ -108,10 +135,10 @@ function createRuntimeService(config, autoNoVncPath, log) {
     return false;
   }
 
-  function buildRemoteUiUrl(req, novncPort) {
+  function buildRemoteUiUrl(req, novncPort, entryFile = "vnc.html") {
     if (PUBLIC_HOST) {
       const proto = PUBLIC_PROTOCOL || req.protocol || "http";
-      return `${proto}://${PUBLIC_HOST}:${novncPort}/vnc.html?autoconnect=1&resize=remote`;
+      return `${proto}://${PUBLIC_HOST}:${novncPort}/${entryFile}?autoconnect=1&resize=remote`;
     }
 
     const forwardedProto = req.headers["x-forwarded-proto"];
@@ -119,7 +146,7 @@ function createRuntimeService(config, autoNoVncPath, log) {
     const forwardedHost = req.headers["x-forwarded-host"];
     const hostHeader = (typeof forwardedHost === "string" ? forwardedHost.split(",")[0] : req.get("host")) || "localhost";
     const hostname = hostHeader.includes(":") ? hostHeader.slice(0, hostHeader.lastIndexOf(":")) : hostHeader;
-    return `${proto}://${hostname}:${novncPort}/vnc.html?autoconnect=1&resize=remote`;
+    return `${proto}://${hostname}:${novncPort}/${entryFile}?autoconnect=1&resize=remote`;
   }
 
   function buildHeadlessX11Env(displayName, extra = {}) {
@@ -225,16 +252,15 @@ function createRuntimeService(config, autoNoVncPath, log) {
 
     const novncWebCandidates = Array.from(new Set(novncWebCandidatesRaw.flatMap((candidate) => expandNoVncCandidatePaths(candidate))));
 
-    let novncWebPath = null;
-    for (const p of novncWebCandidates) {
-      if (fsNative.existsSync(p)) {
-        novncWebPath = p;
-        break;
-      }
-    }
+    const resolvedNoVnc = resolveNoVncWeb(novncWebCandidates);
+    const novncWebPath = resolvedNoVnc.webPath;
+    const novncEntryFile = resolvedNoVnc.entryFile || "vnc.html";
 
     if (!novncWebPath) {
-      throw new Error("noVNC web files not found. Set NOVNC_WEB_PATH to the noVNC web dir (example: /run/current-system/sw/share/novnc).");
+      const checkedPreview = resolvedNoVnc.checked.slice(0, 8);
+      throw new Error(
+        `noVNC web files not found. Checked for vnc.html/vnc_lite.html under: ${checkedPreview.join(", ")}. Set NOVNC_WEB_PATH to a directory that contains noVNC web files.`
+      );
     }
 
     const websockify = createLoggedDetachedProcess(COMMANDS.websockify, ["--web", novncWebPath, String(novncPort), `127.0.0.1:${vncPort}`], {
@@ -283,6 +309,7 @@ function createRuntimeService(config, autoNoVncPath, log) {
       runtimeDir,
       wmCommandUsed,
       novncWebPath,
+      novncEntryFile,
       pids: {
         xvfb: xvfb.child.pid,
         wm: wm ? wm.child.pid : null,
@@ -304,7 +331,7 @@ function createRuntimeService(config, autoNoVncPath, log) {
       }
     };
 
-    session.remoteUiUrl = buildRemoteUiUrl(req, novncPort);
+    session.remoteUiUrl = buildRemoteUiUrl(req, novncPort, novncEntryFile);
 
     log("info", "Isolated session started", {
       sessionId: session.id,
