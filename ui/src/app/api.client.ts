@@ -1,10 +1,12 @@
-import { GameMetadata, GamesApiResponse } from './api.types';
+import { GameMetadata, GamesApiResponse, InstalledGame } from './api.types';
 
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(url, options);
   const payload = (await response.json().catch(() => ({}))) as T & { error?: string };
   if (!response.ok) {
-    throw new Error(payload.error || `Request failed: ${response.status}`);
+    const error = new Error(payload.error || `Request failed: ${response.status}`) as Error & { status?: number };
+    error.status = response.status;
+    throw error;
   }
   return payload;
 }
@@ -45,6 +47,10 @@ export function fetchActiveSessionApi(): Promise<{ session: any | null }> {
 
 export function fetchSessionLogsApi(sessionId: string): Promise<any> {
   return request(`/api/install/${sessionId}/logs`);
+}
+
+export function fetchInstalledGamesApi(): Promise<{ count: number; games: InstalledGame[] }> {
+  return request('/api/installed-games');
 }
 
 export function fetchGameMetadataApi(name: string): Promise<GameMetadata> {

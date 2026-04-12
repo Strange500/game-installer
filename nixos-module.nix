@@ -9,9 +9,9 @@ let
     pkgs.bash
     pkgs.python3Packages.websockify
     pkgs.x11vnc
-    pkgs.xorg.xorgserver
+    pkgs.xorg-server
     pkgs.openbox
-    pkgs.wineWowPackages.stable
+    pkgs.wineWow64Packages.stable
   ];
 in
 {
@@ -59,7 +59,31 @@ in
     openFirewall = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Open the configured port in NixOS firewall.";
+      description = "Open app and noVNC ports in NixOS firewall.";
+    };
+
+    isolatedBaseDisplay = lib.mkOption {
+      type = lib.types.int;
+      default = 90;
+      description = "Base X display number for isolated installer sessions.";
+    };
+
+    isolatedBaseVncPort = lib.mkOption {
+      type = lib.types.port;
+      default = 5901;
+      description = "Base local VNC port for isolated installer sessions.";
+    };
+
+    isolatedBaseNoVncPort = lib.mkOption {
+      type = lib.types.port;
+      default = 6081;
+      description = "Base noVNC web port for isolated installer sessions.";
+    };
+
+    isolatedSessionSlots = lib.mkOption {
+      type = lib.types.int;
+      default = 30;
+      description = "Maximum number of parallel isolated installer session slots.";
     };
 
     dataDir = lib.mkOption {
@@ -109,6 +133,12 @@ in
     ];
 
     networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
+    networking.firewall.allowedTCPPortRanges = lib.mkIf cfg.openFirewall [
+      {
+        from = cfg.isolatedBaseNoVncPort;
+        to = cfg.isolatedBaseNoVncPort + cfg.isolatedSessionSlots - 1;
+      }
+    ];
 
     systemd.services.game-installer = {
       description = "Game Installer web service";
@@ -123,6 +153,9 @@ in
         LOCAL_LIBRARY_DIR = cfg.dataDir;
         LOCAL_INSTALL_BASE = "${cfg.dataDir}/installed-games";
         SESSION_RUNTIME_BASE = cfg.runtimeDir;
+        ISOLATED_BASE_DISPLAY = toString cfg.isolatedBaseDisplay;
+        ISOLATED_BASE_VNC_PORT = toString cfg.isolatedBaseVncPort;
+        ISOLATED_BASE_NOVNC_PORT = toString cfg.isolatedBaseNoVncPort;
         NOVNC_WEB_PATH = "${pkgs.novnc}/share/novnc";
       } // cfg.environment;
 

@@ -162,8 +162,16 @@ Download progress is exposed in session state and shown in the UI progress bar.
 - `POST /api/install` body: `{ "remotePath": "...", "gameName": "..." }`
 - `GET /api/install/:sessionId`
 - `GET /api/install/active`
+- `GET /api/installed-games`
 - `POST /api/install/:sessionId/launch`
 - `GET /api/install/:sessionId/logs` (tails of xvfb/x11vnc/websockify/installer logs)
+
+Tracked installs/downloads are persisted in `LOCAL_INSTALL_BASE/.installed-games.json`.
+
+With `services.game-installer.openFirewall = true;`, the NixOS module opens:
+
+- app port (`services.game-installer.port`, default `3000`)
+- noVNC session range (`services.game-installer.isolatedBaseNoVncPort` through `+ isolatedSessionSlots - 1`, default `6081-6110`)
 
 ## Notes
 

@@ -4,12 +4,13 @@ import {
   fetchActiveSessionApi,
   fetchGameMetadataApi,
   fetchGamesApi,
+  fetchInstalledGamesApi,
   fetchSessionApi,
   fetchSessionLogsApi,
   launchInstallApi,
   startInstallApi
 } from './api.client';
-import { GameItem, GameMetadata, InstallSession } from './api.types';
+import { GameItem, GameMetadata, InstalledGame, InstallSession } from './api.types';
 
 @Component({
   selector: 'app-root',
@@ -20,6 +21,7 @@ import { GameItem, GameMetadata, InstallSession } from './api.types';
 export class App implements OnInit, OnDestroy {
   games: GameItem[] = [];
   gameMetadata: Record<string, GameMetadata> = {};
+  installedGames: InstalledGame[] = [];
   selectedInstaller: Record<string, string> = {};
   session: InstallSession | null = null;
   sessionLogs = '';
@@ -38,6 +40,7 @@ export class App implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.fetchGames(true);
     this.restoreSession();
+    this.loadInstalledGames();
   }
 
   ngOnDestroy(): void {
@@ -164,6 +167,7 @@ export class App implements OnInit, OnDestroy {
       await this.fetchSession(payload.sessionId);
       this.startPolling();
       this.status = 'Download started';
+      this.loadInstalledGames();
     } catch (err: any) {
       this.status = err.message || 'Install failed to start';
     } finally {
@@ -180,10 +184,20 @@ export class App implements OnInit, OnDestroy {
       this.status = 'Installer launched';
       if (payload.remoteUiUrl) window.open(payload.remoteUiUrl, '_blank', 'noopener,noreferrer');
       this.startPolling();
+      this.loadInstalledGames();
     } catch (err: any) {
       this.status = err.message || 'Launch failed';
     } finally {
       this.loading = false;
+    }
+  }
+
+  private async loadInstalledGames(): Promise<void> {
+    try {
+      const data = await fetchInstalledGamesApi();
+      this.installedGames = data.games || [];
+    } catch {
+      // keep previous view on transient errors
     }
   }
 
@@ -232,9 +246,11 @@ export class App implements OnInit, OnDestroy {
     try {
       const data = await fetchSessionApi(sessionId);
       this.session = data;
-    } catch {
-      localStorage.removeItem('activeInstallSessionId');
-      this.session = null;
+    } catch (err: any) {
+      if (err?.status === 404) {
+        localStorage.removeItem('activeInstallSessionId');
+        this.session = null;
+      }
     }
   }
 

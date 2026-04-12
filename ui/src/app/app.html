@@ -93,8 +93,27 @@
       <pre class="logs" *ngIf="sessionLogs">{{ sessionLogs }}</pre>
     </div>
   </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Tracked Games</h2>
+      <p class="muted">Persisted download/install history</p>
+    </div>
+    <div class="tracked-list" *ngIf="installedGames.length; else noTrackedTpl">
+      <article class="tracked-item" *ngFor="let game of installedGames">
+        <p class="tracked-title">{{ game.gameName }}</p>
+        <p class="muted">State: {{ game.status }}</p>
+        <p class="muted" *ngIf="game.progress">{{ game.progress }}</p>
+        <p class="muted" *ngIf="game.updatedAt">Updated: {{ game.updatedAt | date:'short' }}</p>
+      </article>
+    </div>
+  </section>
 </main>
 
 <ng-template #noSessionTpl>
   <div class="session-box"><p>No active install session</p></div>
+</ng-template>
+
+<ng-template #noTrackedTpl>
+  <div class="session-box"><p>No tracked installs yet</p></div>
 </ng-template>

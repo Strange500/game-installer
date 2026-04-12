@@ -6,6 +6,135 @@ const crypto = require("crypto");
 function createInstallService(config, discoveryService, runtimeService, log) {
   const { LOCAL_INSTALL_BASE, LOCAL_LIBRARY_DIR, REMOTE_GAMES_DIR } = config;
   const sessions = new Map();
+  const registryPath = path.join(LOCAL_INSTALL_BASE, ".installed-games.json");
+  let installedRegistry = [];
+  let registryLoaded = false;
+  let registryWriteQueue = Promise.resolve();
+
+  async function ensureRegistryLoaded() {
+    if (registryLoaded) return;
+    registryLoaded = true;
+    try {
+      const raw = await fs.readFile(registryPath, "utf8");
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) installedRegistry = parsed;
+    } catch {
+      installedRegistry = [];
+    }
+  }
+
+  function enqueueRegistryWrite() {
+    registryWriteQueue = registryWriteQueue
+      .then(async () => {
+        await fs.mkdir(LOCAL_INSTALL_BASE, { recursive: true });
+        await fs.writeFile(registryPath, JSON.stringify(installedRegistry, null, 2), "utf8");
+      })
+      .catch(() => {});
+
+    return registryWriteQueue;
+  }
+
+  async function updateInstalledRegistry(sessionOrRecord) {
+    await ensureRegistryLoaded();
+
+    const now = new Date().toISOString();
+    const record = {
+      id: sessionOrRecord.id || crypto.createHash("md5").update(`${sessionOrRecord.gameName}:${sessionOrRecord.installDir}`).digest("hex"),
+      gameName: sessionOrRecord.gameName,
+      sourceType: sessionOrRecord.sourceType || null,
+      status: sessionOrRecord.state || sessionOrRecord.status || "unknown",
+      installDir: sessionOrRecord.installDir || null,
+      localInstallerPath: sessionOrRecord.localInstallerPath || null,
+      sessionId: sessionOrRecord.id || sessionOrRecord.sessionId || null,
+      progress: sessionOrRecord.progress || null,
+      createdAt: sessionOrRecord.createdAt || now,
+      updatedAt: now
+    };
+
+    const existingIndex = installedRegistry.findIndex((item) => item.id === record.id);
+    if (existingIndex >= 0) {
+      const existing = installedRegistry[existingIndex];
+      installedRegistry[existingIndex] = {
+        ...existing,
+        ...record,
+        createdAt: existing.createdAt || record.createdAt
+      };
+    } else {
+      installedRegistry.push(record);
+    }
+
+    await enqueueRegistryWrite();
+  }
+
+  async function listInstalledGames() {
+    await ensureRegistryLoaded();
+
+    let diskEntries = [];
+    try {
+      const dirs = await fs.readdir(LOCAL_INSTALL_BASE, { withFileTypes: true });
+      diskEntries = dirs
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => ({
+          id: crypto.createHash("md5").update(`disk:${entry.name}`).digest("hex"),
+          gameName: entry.name,
+          sourceType: null,
+          status: "present_on_disk",
+          installDir: path.join(LOCAL_INSTALL_BASE, entry.name),
+          localInstallerPath: null,
+          sessionId: null,
+          progress: null,
+          createdAt: null,
+          updatedAt: null
+        }));
+    } catch {
+      diskEntries = [];
+    }
+
+    const merged = new Map();
+    for (const item of installedRegistry) merged.set(item.id, item);
+    for (const item of diskEntries) {
+      const existingByDir = Array.from(merged.values()).find((row) => row.installDir === item.installDir);
+      if (!existingByDir) merged.set(item.id, item);
+    }
+
+    return Array.from(merged.values()).sort((a, b) => {
+      const aTs = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const bTs = new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return bTs - aTs;
+    });
+  }
+
+  function formatMbps(bytesPerSecond) {
+    if (!bytesPerSecond || bytesPerSecond <= 0) return null;
+    return `${(bytesPerSecond / (1024 * 1024)).toFixed(2)} MB/s`;
+  }
+
+  function updateDownloadProgress(sessionId, totalBytes, transferredBytes, startedAt) {
+    const sessProgress = sessions.get(sessionId);
+    if (!sessProgress) return;
+
+    const safeTotal = Number(totalBytes || 0);
+    const safeTransferred = Number(transferredBytes || 0);
+    const percent = safeTotal > 0 ? Math.min(100, Math.round((safeTransferred / safeTotal) * 100)) : null;
+    const elapsedSeconds = Math.max(0.001, (Date.now() - startedAt) / 1000);
+    const speedText = formatMbps(safeTransferred / elapsedSeconds);
+
+    sessProgress.download = {
+      totalBytes: safeTotal > 0 ? safeTotal : null,
+      transferredBytes: safeTransferred,
+      percent
+    };
+
+    if (percent !== null) {
+      sessProgress.progress = speedText
+        ? `Downloading installer... ${percent}% (${speedText})`
+        : `Downloading installer... ${percent}%`;
+    } else {
+      sessProgress.progress = speedText
+        ? `Downloading installer... (${speedText})`
+        : "Downloading installer...";
+    }
+  }
 
   function isSubPath(rootPath, candidatePath) {
     const normalizedRoot = path.resolve(rootPath);
@@ -129,7 +258,10 @@ function createInstallService(config, discoveryService, runtimeService, log) {
       createdAt: new Date().toISOString()
     });
 
+    await updateInstalledRegistry(sessions.get(sessionId));
+
     const runCopy = async () => {
+      const downloadStartedAt = Date.now();
       const packageDirName = normalizedPackageDir
         ? path.basename(sourceType === "remote" ? path.posix.basename(normalizedPackageDir) : normalizedPackageDir)
         : null;
@@ -139,38 +271,45 @@ function createInstallService(config, discoveryService, runtimeService, log) {
         try {
           const isNestedPackage = normalizedPackageDir && normalizedPackageDir !== REMOTE_GAMES_DIR;
           if (isNestedPackage) {
-            const listing = await sftp.list(normalizedPackageDir).catch(() => []);
-            const totalBytes = listing.filter((item) => item.type !== "d").reduce((sum, item) => sum + Number(item.size || 0), 0);
+            const files = await discoveryService.listRemoteFilesRecursive(sftp, normalizedPackageDir, 8);
+            const totalBytes = files.reduce((sum, item) => sum + Number(item.size || 0), 0);
             let transferredBytes = 0;
-            await sftp.downloadDir(normalizedPackageDir, installDir);
 
-            const localEntries = await fs.readdir(installDir, { withFileTypes: true }).catch(() => []);
-            for (const localEntry of localEntries) {
-              if (!localEntry.isFile()) continue;
-              const st = await fs.stat(path.join(installDir, localEntry.name)).catch(() => null);
-              transferredBytes += Number(st?.size || 0);
-            }
+            updateDownloadProgress(sessionId, totalBytes, 0, downloadStartedAt);
 
-            const sessAfterDir = sessions.get(sessionId);
-            if (sessAfterDir) {
-              sessAfterDir.download = {
-                totalBytes,
-                transferredBytes: totalBytes > 0 ? totalBytes : transferredBytes,
-                percent: totalBytes > 0 ? 100 : null
-              };
+            for (const remoteFile of files) {
+              const relativePath = path.posix.relative(normalizedPackageDir, remoteFile.path);
+              const localTarget = path.join(installDir, ...relativePath.split("/"));
+              await fs.mkdir(path.dirname(localTarget), { recursive: true });
+
+              await sftp.fastGet(remoteFile.path, localTarget, {
+                concurrency: 64,
+                step: (transferredForFile) => {
+                  updateDownloadProgress(
+                    sessionId,
+                    totalBytes,
+                    transferredBytes + Number(transferredForFile || 0),
+                    downloadStartedAt
+                  );
+                }
+              });
+
+              transferredBytes += Number(remoteFile.size || 0);
+              updateDownloadProgress(sessionId, totalBytes, transferredBytes, downloadStartedAt);
             }
           } else {
             const stat = await sftp.stat(sourcePath).catch(() => null);
             const totalBytes = Number(stat?.size || 0);
+            updateDownloadProgress(sessionId, totalBytes, 0, downloadStartedAt);
+
             await sftp.fastGet(sourcePath, localInstallerPath, {
+              concurrency: 64,
               step: (transferred) => {
-                const sessProgress = sessions.get(sessionId);
-                if (!sessProgress) return;
-                const percent = totalBytes > 0 ? Math.min(100, Math.round((transferred / totalBytes) * 100)) : null;
-                sessProgress.download = { totalBytes, transferredBytes: transferred, percent };
-                sessProgress.progress = totalBytes > 0 ? `Downloading installer... ${percent}%` : "Downloading installer...";
+                updateDownloadProgress(sessionId, totalBytes, Number(transferred || 0), downloadStartedAt);
               }
             });
+
+            updateDownloadProgress(sessionId, totalBytes, totalBytes, downloadStartedAt);
           }
         } finally {
           await sftp.end().catch(() => {});
@@ -200,6 +339,8 @@ function createInstallService(config, discoveryService, runtimeService, log) {
         percent: 100
       };
 
+      await updateInstalledRegistry(sess);
+
       log("info", "Installer payload ready", { sessionId, installDir, localInstallerPath: sess.localInstallerPath });
     };
 
@@ -208,6 +349,7 @@ function createInstallService(config, discoveryService, runtimeService, log) {
       if (!sess) return;
       sess.state = "failed";
       sess.progress = `Download failed: ${err.message}`;
+      updateInstalledRegistry(sess).catch(() => {});
       log("error", "Install download/copy failed", { sessionId, error: err.message });
     });
 
@@ -244,9 +386,11 @@ function createInstallService(config, discoveryService, runtimeService, log) {
     try {
       session.state = "starting_isolated_session";
       session.progress = "Preparing isolated desktop session for installer...";
+      await updateInstalledRegistry(session);
       await runtimeService.startIsolatedInstallerSession(session, req);
       session.state = "installer_started";
       session.progress = "Installer started in isolated session. Use remote UI link to complete installation.";
+      await updateInstalledRegistry(session);
       return {
         ok: true,
         message: "Installer launched in isolated session",
@@ -261,6 +405,7 @@ function createInstallService(config, discoveryService, runtimeService, log) {
         error: err.message,
         runtimeDir: session.runtime?.runtimeDir || null
       });
+      await updateInstalledRegistry(session);
       err.status = 500;
       err.message = session.progress;
       throw err;
@@ -271,6 +416,7 @@ function createInstallService(config, discoveryService, runtimeService, log) {
     listGames,
     startInstall,
     launchSession,
+    listInstalledGames,
     getSession,
     getActiveSession,
     getSessionLogs

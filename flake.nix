@@ -37,10 +37,10 @@
               nodejs_22
               python3Packages.websockify
               x11vnc
-              xorg.xorgserver
+              xorg-server
               openbox
               novnc
-              wineWowPackages.stable
+              wineWow64Packages.stable
             ];
 
             shellHook = ''
@@ -65,7 +65,7 @@
               if [ ! -d "$NOVNC_WEB_PATH" ]; then
                 export NOVNC_WEB_PATH="${pkgs.novnc}/share/webapps/novnc"
               fi
-              export PATH="${pkgs.python3Packages.websockify}/bin:${pkgs.x11vnc}/bin:${pkgs.xorg.xorgserver}/bin:${pkgs.openbox}/bin:${pkgs.wineWowPackages.stable}/bin:$PATH"
+              export PATH="${pkgs.python3Packages.websockify}/bin:${pkgs.x11vnc}/bin:${pkgs.xorg-server}/bin:${pkgs.openbox}/bin:${pkgs.wineWow64Packages.stable}/bin:$PATH"
               mkdir -p "$LOCAL_INSTALL_BASE" "$SESSION_RUNTIME_BASE"
 
               if [ -f "$PWD/server.js" ]; then

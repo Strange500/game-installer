@@ -51,3 +51,16 @@ export type GamesApiResponse = {
   remoteError?: string | null;
   error?: string;
 };
+
+export type InstalledGame = {
+  id: string;
+  gameName: string;
+  sourceType: 'local' | 'remote' | null;
+  status: string;
+  installDir: string | null;
+  localInstallerPath: string | null;
+  sessionId: string | null;
+  progress: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};

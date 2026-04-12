@@ -148,6 +148,43 @@ function createDiscoveryService(config) {
     return output;
   }
 
+  async function listRemoteFilesRecursive(sftp, remoteDir, depth = 6) {
+    let entries;
+    try {
+      entries = await sftp.list(remoteDir);
+    } catch {
+      return [];
+    }
+
+    const files = [];
+    const nestedDirs = [];
+
+    for (const entry of entries) {
+      const remotePath = path.posix.join(remoteDir, entry.name);
+      if (entry.type === "d") {
+        if (depth > 0) nestedDirs.push(remotePath);
+        continue;
+      }
+
+      files.push({
+        path: remotePath,
+        size: Number(entry.size || 0)
+      });
+    }
+
+    if (nestedDirs.length > 0 && depth > 0) {
+      const nestedResults = await mapWithConcurrency(nestedDirs, REMOTE_LIST_CONCURRENCY, async (dirPath) => {
+        return listRemoteFilesRecursive(sftp, dirPath, depth - 1);
+      });
+
+      for (const nested of nestedResults) {
+        files.push(...nested);
+      }
+    }
+
+    return files;
+  }
+
   async function collectLocalInstallers(localDir, depth = 3) {
     let output = [];
     let entries;
@@ -321,6 +358,7 @@ function createDiscoveryService(config) {
   return {
     listGames,
     createSftpClient,
+    listRemoteFilesRecursive,
     toSafeFolderName,
     copyDirectoryContents,
     resolveInstallerPathCandidates

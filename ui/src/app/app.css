@@ -37,6 +37,9 @@ h1 { margin: 0.35rem 0 0.75rem; font-family: 'Space Grotesk', sans-serif; font-s
 .btn-accent { color: #111827; background: linear-gradient(135deg, #fbbf24, #f59e0b); }
 .session-box { border: 1px dashed #d9dfec; border-radius: 12px; padding: 0.9rem; background: #fff; }
 .session-state { margin: 0; font-weight: 700; }
+.tracked-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; }
+.tracked-item { border: 1px solid #d9dfec; border-radius: 12px; padding: 0.75rem; background: #fff; }
+.tracked-title { margin: 0 0 0.35rem; font-weight: 700; color: #111827; }
 .progress-wrap { margin: 0.5rem 0; }
 .progress-bar { width: 100%; height: 10px; border-radius: 999px; background: #e5e7eb; overflow: hidden; }
 .progress-fill { height: 100%; background: linear-gradient(135deg, #0f766e, #14b8a6); transition: width 0.25s ease; }

@@ -62,6 +62,15 @@ function createApiRouter(deps) {
     res.json({ session: installService.getActiveSession() });
   });
 
+  router.get("/installed-games", async (req, res, next) => {
+    try {
+      const games = await installService.listInstalledGames();
+      res.json({ count: games.length, games });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.get("/install/:sessionId", (req, res) => {
     const session = installService.getSession(req.params.sessionId);
     if (!session) return res.status(404).json({ error: "Install session not found" });
