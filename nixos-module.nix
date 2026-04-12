@@ -157,6 +157,10 @@ in
         ISOLATED_BASE_VNC_PORT = toString cfg.isolatedBaseVncPort;
         ISOLATED_BASE_NOVNC_PORT = toString cfg.isolatedBaseNoVncPort;
         NOVNC_WEB_PATH = "${pkgs.novnc}/share/novnc";
+        XVFB_CMD = "${pkgs.xorg-server}/bin/Xvfb";
+        X11VNC_CMD = "${pkgs.x11vnc}/bin/x11vnc";
+        WEBSOCKIFY_CMD = "${pkgs.python3Packages.websockify}/bin/websockify";
+        WINE_CMD = "${pkgs.wineWow64Packages.stable}/bin/wine";
       } // cfg.environment;
 
       path = runtimeTools;

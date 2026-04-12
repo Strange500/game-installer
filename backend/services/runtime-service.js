@@ -16,7 +16,25 @@ function createRuntimeService(config, autoNoVncPath, log) {
     PUBLIC_PROTOCOL
   } = config;
 
+  const COMMANDS = {
+    xvfb: process.env.XVFB_CMD || "Xvfb",
+    x11vnc: process.env.X11VNC_CMD || "x11vnc",
+    websockify: process.env.WEBSOCKIFY_CMD || "websockify",
+    wine: process.env.WINE_CMD || "wine",
+    msiexec: process.env.MSIEXEC_CMD || "msiexec",
+    cmd: process.env.CMD_CMD || "cmd",
+    powershell: process.env.POWERSHELL_CMD || "powershell"
+  };
+
+  function isExplicitCommandPath(command) {
+    return command.includes("/");
+  }
+
   async function commandExists(command) {
+    if (isExplicitCommandPath(command)) {
+      return fsNative.existsSync(command);
+    }
+
     return new Promise((resolve) => {
       const child = spawn("bash", ["-lc", `command -v ${command}`], { stdio: "ignore" });
       child.on("exit", (code) => resolve(code === 0));
@@ -115,16 +133,21 @@ function createRuntimeService(config, autoNoVncPath, log) {
   }
 
   async function startIsolatedInstallerSession(session, req) {
-    const needs = ["Xvfb", "x11vnc", "websockify"];
+    const needs = [
+      { label: "Xvfb", command: COMMANDS.xvfb },
+      { label: "x11vnc", command: COMMANDS.x11vnc },
+      { label: "websockify", command: COMMANDS.websockify }
+    ];
+
     for (const tool of needs) {
-      const ok = await commandExists(tool);
-      if (!ok) throw new Error(`Missing required command '${tool}'. Install it to use isolated installer sessions.`);
+      const ok = await commandExists(tool.command);
+      if (!ok) throw new Error(`Missing required command '${tool.label}'. Install it to use isolated installer sessions.`);
     }
 
     if (process.platform !== "win32") {
       const ext = path.extname(session.localInstallerPath).toLowerCase();
       if ([".exe", ".msi", ".bat", ".cmd"].includes(ext)) {
-        const wineExists = await commandExists("wine");
+        const wineExists = await commandExists(COMMANDS.wine);
         if (!wineExists) throw new Error("Missing required command 'wine' for Windows installers on Linux host.");
       }
     }
@@ -138,7 +161,7 @@ function createRuntimeService(config, autoNoVncPath, log) {
 
     log("info", "Starting isolated session", { sessionId: session.id, displayName, vncPort, novncPort, runtimeDir });
 
-    const xvfb = createLoggedDetachedProcess("Xvfb", [displayName, "-screen", "0", ISOLATED_RESOLUTION, "-nolisten", "tcp"], {
+    const xvfb = createLoggedDetachedProcess(COMMANDS.xvfb, [displayName, "-screen", "0", ISOLATED_RESOLUTION, "-nolisten", "tcp"], {
       env: buildHeadlessX11Env(displayName),
       runtimeDir,
       logName: "xvfb"
@@ -160,7 +183,7 @@ function createRuntimeService(config, autoNoVncPath, log) {
       }
     }
 
-    const x11vnc = createLoggedDetachedProcess("x11vnc", [
+    const x11vnc = createLoggedDetachedProcess(COMMANDS.x11vnc, [
       "-display",
       displayName,
       "-rfbport",
@@ -199,7 +222,7 @@ function createRuntimeService(config, autoNoVncPath, log) {
       throw new Error("noVNC web files not found. Set NOVNC_WEB_PATH to the noVNC web dir (example: /run/current-system/sw/share/novnc).");
     }
 
-    const websockify = createLoggedDetachedProcess("websockify", ["--web", novncWebPath, String(novncPort), `127.0.0.1:${vncPort}`], {
+    const websockify = createLoggedDetachedProcess(COMMANDS.websockify, ["--web", novncWebPath, String(novncPort), `127.0.0.1:${vncPort}`], {
       env: buildHeadlessX11Env(displayName),
       runtimeDir,
       logName: "websockify"
@@ -222,18 +245,18 @@ function createRuntimeService(config, autoNoVncPath, log) {
 
     let installer;
     if (ext === ".msi" && process.platform === "win32") {
-      installer = createLoggedDetachedProcess("msiexec", ["/i", session.localInstallerPath], { runtimeDir, logName: "installer" });
+      installer = createLoggedDetachedProcess(COMMANDS.msiexec, ["/i", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".msi") {
-      installer = createLoggedDetachedProcess("wine", ["msiexec", "/i", session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      installer = createLoggedDetachedProcess(COMMANDS.wine, ["msiexec", "/i", session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
     } else if ((ext === ".bat" || ext === ".cmd") && process.platform === "win32") {
-      installer = createLoggedDetachedProcess("cmd", ["/c", session.localInstallerPath], { runtimeDir, logName: "installer" });
+      installer = createLoggedDetachedProcess(COMMANDS.cmd, ["/c", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".bat" || ext === ".cmd") {
-      installer = createLoggedDetachedProcess("wine", ["cmd", "/c", session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      installer = createLoggedDetachedProcess(COMMANDS.wine, ["cmd", "/c", session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
     } else if (ext === ".ps1") {
       if (process.platform !== "win32") throw new Error("PowerShell installers are only supported on Windows hosts.");
-      installer = createLoggedDetachedProcess("powershell", ["-ExecutionPolicy", "Bypass", "-File", session.localInstallerPath], { runtimeDir, logName: "installer" });
+      installer = createLoggedDetachedProcess(COMMANDS.powershell, ["-ExecutionPolicy", "Bypass", "-File", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".exe" && process.platform !== "win32") {
-      installer = createLoggedDetachedProcess("wine", [session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      installer = createLoggedDetachedProcess(COMMANDS.wine, [session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
     } else {
       installer = createLoggedDetachedProcess(session.localInstallerPath, [], { env: installerEnv, runtimeDir, logName: "installer" });
     }
