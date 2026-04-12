@@ -18,6 +18,12 @@ cp .env.example .env
 
 Update `.env` with real SSH credentials.
 
+Windows installer runtime on Linux is automatic by default:
+
+- `WINDOWS_RUNTIME=auto` tries `wine` first, then `proton` if wine is unavailable.
+- set `WINDOWS_RUNTIME=proton` to force Proton.
+- optional overrides: `WINE_CMD`, `PROTON_CMD`, `PROTON_ARGS` (default `run`).
+
 Important: place `.env` in this project root (`games/.env`) because the backend reads from current directory.
 
 ## 2) Run
@@ -187,7 +193,15 @@ sudo apt-get update
 sudo apt-get install -y xvfb x11vnc websockify novnc openbox wine
 ```
 
-`openbox` and `wine` may be replaced based on your environment.
+If you prefer Proton only, install Proton and set:
+
+```bash
+WINDOWS_RUNTIME=proton
+PROTON_CMD=proton
+PROTON_ARGS=run
+```
+
+`openbox`, `wine`, and `proton` can be adjusted for your environment.
 
 On NixOS, you can skip manual package install by using `flake.nix` in this repo.
 
@@ -202,4 +216,4 @@ On NixOS, you can skip manual package install by using `flake.nix` in this repo.
 curl -s http://localhost:3000/api/install/<sessionId>/logs
 ```
 
-This helps identify whether x11vnc, websockify, or wine/installer failed.
+This helps identify whether x11vnc, websockify, or the selected Windows runtime (wine/proton) failed.

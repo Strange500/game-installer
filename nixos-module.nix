@@ -12,7 +12,7 @@ let
     pkgs.xorg-server
     pkgs.openbox
     pkgs.wineWow64Packages.stable
-  ];
+  ] ++ lib.optional (cfg.protonPackage != null) cfg.protonPackage;
 in
 {
   options.services.game-installer = {
@@ -86,6 +86,32 @@ in
       description = "Maximum number of parallel isolated installer session slots.";
     };
 
+    windowsRuntime = lib.mkOption {
+      type = lib.types.enum [ "auto" "wine" "proton" ];
+      default = "auto";
+      description = "Runtime used for Windows installers on Linux hosts.";
+    };
+
+    protonPackage = lib.mkOption {
+      type = lib.types.nullOr lib.types.package;
+      default = null;
+      example = lib.literalExpression "pkgs.proton-ge-bin";
+      description = "Optional Proton package added to service PATH.";
+    };
+
+    protonCmd = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "/run/current-system/sw/bin/proton";
+      description = "Optional explicit PROTON_CMD path. If null, backend uses 'proton' from PATH.";
+    };
+
+    protonArgs = lib.mkOption {
+      type = lib.types.str;
+      default = "run";
+      description = "Arguments prepended when launching Proton (PROTON_ARGS).";
+    };
+
     dataDir = lib.mkOption {
       type = lib.types.str;
       default = "/var/lib/game-installer";
@@ -146,7 +172,9 @@ in
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
 
-      environment = {
+      environment = (if cfg.protonCmd != null then {
+        PROTON_CMD = cfg.protonCmd;
+      } else { }) // {
         NODE_ENV = "production";
         PORT = toString cfg.port;
         SERVER_HOST = cfg.host;
@@ -161,6 +189,8 @@ in
         X11VNC_CMD = "${pkgs.x11vnc}/bin/x11vnc";
         WEBSOCKIFY_CMD = "${pkgs.python3Packages.websockify}/bin/websockify";
         WINE_CMD = "${pkgs.wineWow64Packages.stable}/bin/wine";
+        WINDOWS_RUNTIME = cfg.windowsRuntime;
+        PROTON_ARGS = cfg.protonArgs;
       } // cfg.environment;
 
       path = runtimeTools;

@@ -21,10 +21,17 @@ function createRuntimeService(config, autoNoVncPath, log) {
     x11vnc: process.env.X11VNC_CMD || "x11vnc",
     websockify: process.env.WEBSOCKIFY_CMD || "websockify",
     wine: process.env.WINE_CMD || "wine",
+    proton: process.env.PROTON_CMD || "proton",
     msiexec: process.env.MSIEXEC_CMD || "msiexec",
     cmd: process.env.CMD_CMD || "cmd",
     powershell: process.env.POWERSHELL_CMD || "powershell"
   };
+
+  const WINDOWS_RUNTIME_MODE = String(process.env.WINDOWS_RUNTIME || "auto").toLowerCase();
+  const PROTON_ARGS = String(process.env.PROTON_ARGS || "run")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
 
   function isExplicitCommandPath(command) {
     return command.includes("/");
@@ -156,6 +163,25 @@ function createRuntimeService(config, autoNoVncPath, log) {
     return env;
   }
 
+  async function resolveLinuxWindowsRuntime() {
+    const wineExists = await commandExists(COMMANDS.wine);
+    const protonExists = await commandExists(COMMANDS.proton);
+
+    if (WINDOWS_RUNTIME_MODE === "wine") {
+      if (!wineExists) throw new Error("WINDOWS_RUNTIME=wine but WINE_CMD was not found.");
+      return "wine";
+    }
+
+    if (WINDOWS_RUNTIME_MODE === "proton") {
+      if (!protonExists) throw new Error("WINDOWS_RUNTIME=proton but PROTON_CMD was not found.");
+      return "proton";
+    }
+
+    if (wineExists) return "wine";
+    if (protonExists) return "proton";
+    throw new Error("Missing runtime for Windows installers on Linux host. Install wine or proton, or set WINE_CMD/PROTON_CMD.");
+  }
+
   async function readLogTail(filePath, maxBytes = 12000) {
     if (!filePath || !fsNative.existsSync(filePath)) return "";
     const stat = await fs.stat(filePath).catch(() => null);
@@ -187,8 +213,7 @@ function createRuntimeService(config, autoNoVncPath, log) {
     if (process.platform !== "win32") {
       const ext = path.extname(session.localInstallerPath).toLowerCase();
       if ([".exe", ".msi", ".bat", ".cmd"].includes(ext)) {
-        const wineExists = await commandExists(COMMANDS.wine);
-        if (!wineExists) throw new Error("Missing required command 'wine' for Windows installers on Linux host.");
+        await resolveLinuxWindowsRuntime();
       }
     }
 
@@ -282,22 +307,52 @@ function createRuntimeService(config, autoNoVncPath, log) {
     }
 
     const ext = path.extname(session.localInstallerPath).toLowerCase();
-    const installerEnv = buildHeadlessX11Env(displayName, { WINEPREFIX: winePrefix });
+    const linuxWindowsRuntime = process.platform !== "win32" && [".exe", ".msi", ".bat", ".cmd"].includes(ext)
+      ? await resolveLinuxWindowsRuntime()
+      : null;
+    const installerEnv = buildHeadlessX11Env(displayName, {
+      WINEPREFIX: winePrefix,
+      STEAM_COMPAT_DATA_PATH: winePrefix
+    });
 
     let installer;
     if (ext === ".msi" && process.platform === "win32") {
       installer = createLoggedDetachedProcess(COMMANDS.msiexec, ["/i", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".msi") {
-      installer = createLoggedDetachedProcess(COMMANDS.wine, ["msiexec", "/i", session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      if (linuxWindowsRuntime === "proton") {
+        installer = createLoggedDetachedProcess(COMMANDS.proton, [...PROTON_ARGS, "msiexec", "/i", session.localInstallerPath], {
+          env: installerEnv,
+          runtimeDir,
+          logName: "installer"
+        });
+      } else {
+        installer = createLoggedDetachedProcess(COMMANDS.wine, ["msiexec", "/i", session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      }
     } else if ((ext === ".bat" || ext === ".cmd") && process.platform === "win32") {
       installer = createLoggedDetachedProcess(COMMANDS.cmd, ["/c", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".bat" || ext === ".cmd") {
-      installer = createLoggedDetachedProcess(COMMANDS.wine, ["cmd", "/c", session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      if (linuxWindowsRuntime === "proton") {
+        installer = createLoggedDetachedProcess(COMMANDS.proton, [...PROTON_ARGS, "cmd", "/c", session.localInstallerPath], {
+          env: installerEnv,
+          runtimeDir,
+          logName: "installer"
+        });
+      } else {
+        installer = createLoggedDetachedProcess(COMMANDS.wine, ["cmd", "/c", session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      }
     } else if (ext === ".ps1") {
       if (process.platform !== "win32") throw new Error("PowerShell installers are only supported on Windows hosts.");
       installer = createLoggedDetachedProcess(COMMANDS.powershell, ["-ExecutionPolicy", "Bypass", "-File", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".exe" && process.platform !== "win32") {
-      installer = createLoggedDetachedProcess(COMMANDS.wine, [session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      if (linuxWindowsRuntime === "proton") {
+        installer = createLoggedDetachedProcess(COMMANDS.proton, [...PROTON_ARGS, session.localInstallerPath], {
+          env: installerEnv,
+          runtimeDir,
+          logName: "installer"
+        });
+      } else {
+        installer = createLoggedDetachedProcess(COMMANDS.wine, [session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      }
     } else {
       installer = createLoggedDetachedProcess(session.localInstallerPath, [], { env: installerEnv, runtimeDir, logName: "installer" });
     }
@@ -307,6 +362,7 @@ function createRuntimeService(config, autoNoVncPath, log) {
       vncPort,
       novncPort,
       runtimeDir,
+      linuxWindowsRuntime,
       wmCommandUsed,
       novncWebPath,
       novncEntryFile,
