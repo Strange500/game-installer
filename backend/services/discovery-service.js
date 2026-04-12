@@ -16,10 +16,31 @@ function createDiscoveryService(config) {
     LOCAL_LIBRARY_DIR
   } = config;
   const GAMES_CACHE_TTL_MS = 30_000;
+  const REMOTE_SCAN_DEPTH = Number(process.env.REMOTE_SCAN_DEPTH || 2);
+  const REMOTE_LIST_CONCURRENCY = Number(process.env.REMOTE_LIST_CONCURRENCY || 8);
   let gamesCache = {
     ts: 0,
     value: null
   };
+
+  async function mapWithConcurrency(items, concurrency, mapper) {
+    if (!items.length) return [];
+    const limit = Math.max(1, Math.floor(concurrency || 1));
+    const results = new Array(items.length);
+    let index = 0;
+
+    async function worker() {
+      while (index < items.length) {
+        const current = index;
+        index += 1;
+        results[current] = await mapper(items[current], current);
+      }
+    }
+
+    const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+    await Promise.all(workers);
+    return results;
+  }
 
   function requireConfig() {
     const missing = [];
@@ -84,7 +105,7 @@ function createDiscoveryService(config) {
     return normalizeName(fileName);
   }
 
-  async function collectInstallers(sftp, remoteDir, depth = 2) {
+  async function collectInstallers(sftp, remoteDir, depth = REMOTE_SCAN_DEPTH) {
     let output = [];
     let entries;
     try {
@@ -93,11 +114,12 @@ function createDiscoveryService(config) {
       return output;
     }
 
+    const nestedDirs = [];
+
     for (const entry of entries) {
       const remotePath = path.posix.join(remoteDir, entry.name);
       if (entry.type === "d" && depth > 0) {
-        const nested = await collectInstallers(sftp, remotePath, depth - 1);
-        output = output.concat(nested);
+        nestedDirs.push(remotePath);
         continue;
       }
 
@@ -111,6 +133,15 @@ function createDiscoveryService(config) {
           size: Number(entry.size || 0),
           modifiedAt: entry.modifyTime || null
         });
+      }
+    }
+
+    if (nestedDirs.length > 0 && depth > 0) {
+      const nestedResults = await mapWithConcurrency(nestedDirs, REMOTE_LIST_CONCURRENCY, async (dirPath) => {
+        return collectInstallers(sftp, dirPath, depth - 1);
+      });
+      for (const nested of nestedResults) {
+        output = output.concat(nested);
       }
     }
 
@@ -157,14 +188,20 @@ function createDiscoveryService(config) {
   }
 
   async function buildGamesListing(log) {
+    const startedAt = Date.now();
     let sftp;
+    const localStartedAt = Date.now();
     const localInstallers = await collectLocalInstallers(path.resolve(LOCAL_LIBRARY_DIR), 3);
+    const localDurationMs = Date.now() - localStartedAt;
     let remoteInstallers = [];
     let remoteError = null;
+    let remoteDurationMs = 0;
 
     try {
+      const remoteStartedAt = Date.now();
       sftp = await createSftpClient();
-      remoteInstallers = await collectInstallers(sftp, REMOTE_GAMES_DIR, 3);
+      remoteInstallers = await collectInstallers(sftp, REMOTE_GAMES_DIR, REMOTE_SCAN_DEPTH);
+      remoteDurationMs = Date.now() - remoteStartedAt;
     } catch (err) {
       remoteError = err.message;
       log("warn", "Remote games listing failed", {
@@ -196,6 +233,16 @@ function createDiscoveryService(config) {
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
+
+    log("info", "Games discovery timing", {
+      localInstallers: localInstallers.length,
+      remoteInstallers: remoteInstallers.length,
+      localDurationMs,
+      remoteDurationMs,
+      totalDurationMs: Date.now() - startedAt,
+      remoteScanDepth: REMOTE_SCAN_DEPTH,
+      remoteListConcurrency: REMOTE_LIST_CONCURRENCY
+    });
 
     return {
       remoteDir: REMOTE_GAMES_DIR,

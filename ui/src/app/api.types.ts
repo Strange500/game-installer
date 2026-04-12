@@ -21,7 +21,7 @@ export type GameMetadata = {
   description: string | null;
   imageUrl: string | null;
   sourceUrl: string | null;
-  provider: 'wikipedia' | 'none';
+  provider: 'steam' | 'none';
 };
 
 export type InstallSession = {
