@@ -4,7 +4,7 @@
     <h1>Install games from your server in minutes</h1>
     <p class="subhead">Browse available installers, start a package copy, then complete setup in isolated web-accessed desktop.</p>
     <div class="hero-actions">
-      <button class="btn btn-primary" (click)="fetchGames()" [disabled]="loading">Refresh Library</button>
+      <button class="btn btn-primary" (click)="fetchGames(true)" [disabled]="loading">Refresh Library</button>
       <span class="pill">{{ status }}</span>
     </div>
   </header>
@@ -20,8 +20,27 @@
 
     <div class="games-grid" *ngIf="games.length">
       <article class="game-card" *ngFor="let game of games; trackBy: trackByGameId">
+        <div class="game-media" [class.game-media-fallback]="!gameMetadata[game.id]?.imageUrl">
+          <img
+            *ngIf="gameMetadata[game.id]?.imageUrl"
+            [src]="gameMetadata[game.id]?.imageUrl!"
+            [alt]="game.name + ' cover'"
+            loading="lazy"
+          />
+          <span *ngIf="!gameMetadata[game.id]?.imageUrl" class="game-media-letter">{{ game.name.charAt(0).toUpperCase() }}</span>
+        </div>
         <h3 class="game-title">{{ game.name }}</h3>
         <p class="game-meta">{{ game.installers.length }} option(s) • source: {{ game.sourceType }}</p>
+        <p class="game-description">{{ gameMetadata[game.id]?.description || 'No description found yet.' }}</p>
+        <a
+          class="game-source"
+          *ngIf="gameMetadata[game.id]?.sourceUrl"
+          [href]="gameMetadata[game.id]?.sourceUrl!"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          More info
+        </a>
         <label class="installer-label">Installer file</label>
         <select class="installer-select" [value]="selectedInstaller[game.id] || ''" (change)="onInstallerSelect(game.id, $event)">
           <option *ngFor="let installer of game.installers" [value]="installer.sourcePath">
@@ -30,6 +49,12 @@
         </select>
         <button class="btn btn-secondary" (click)="startInstall(game)" [disabled]="loading">Download Installer</button>
       </article>
+    </div>
+
+    <div class="games-load-more" *ngIf="games.length">
+      <button class="btn btn-primary" (click)="loadMoreGames()" [disabled]="loadingMoreGames || !hasMoreGames">
+        {{ loadingMoreGames ? 'Loading more...' : hasMoreGames ? 'Load More Games' : 'All Games Loaded' }}
+      </button>
     </div>
   </section>
 

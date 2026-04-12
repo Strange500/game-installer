@@ -15,6 +15,11 @@ function createDiscoveryService(config) {
     REMOTE_GAMES_DIR,
     LOCAL_LIBRARY_DIR
   } = config;
+  const GAMES_CACHE_TTL_MS = 30_000;
+  let gamesCache = {
+    ts: 0,
+    value: null
+  };
 
   function requireConfig() {
     const missing = [];
@@ -151,7 +156,7 @@ function createDiscoveryService(config) {
     return output;
   }
 
-  async function listGames(log) {
+  async function buildGamesListing(log) {
     let sftp;
     const localInstallers = await collectLocalInstallers(path.resolve(LOCAL_LIBRARY_DIR), 3);
     let remoteInstallers = [];
@@ -200,6 +205,41 @@ function createDiscoveryService(config) {
       count: games.length,
       games
     };
+  }
+
+  function paginateListing(listing, options = {}) {
+    const rawOffset = Number(options.offset);
+    const rawLimit = Number(options.limit);
+    const offset = Number.isFinite(rawOffset) ? Math.max(0, Math.floor(rawOffset)) : 0;
+    const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, Math.floor(rawLimit))) : 24;
+    const total = listing.games.length;
+    const pageGames = listing.games.slice(offset, offset + limit);
+    const hasMore = offset + pageGames.length < total;
+
+    return {
+      ...listing,
+      count: total,
+      total,
+      pageCount: pageGames.length,
+      offset,
+      limit,
+      hasMore,
+      games: pageGames
+    };
+  }
+
+  async function listGames(log, options = {}) {
+    const refresh = options.refresh === true;
+    const isCacheValid = gamesCache.value && Date.now() - gamesCache.ts < GAMES_CACHE_TTL_MS;
+
+    if (!isCacheValid || refresh) {
+      gamesCache = {
+        ts: Date.now(),
+        value: await buildGamesListing(log)
+      };
+    }
+
+    return paginateListing(gamesCache.value, options);
   }
 
   function toSafeFolderName(name) {

@@ -2,13 +2,14 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import {
   fetchActiveSessionApi,
+  fetchGameMetadataApi,
   fetchGamesApi,
   fetchSessionApi,
   fetchSessionLogsApi,
   launchInstallApi,
   startInstallApi
 } from './api.client';
-import { GameItem, InstallSession } from './api.types';
+import { GameItem, GameMetadata, InstallSession } from './api.types';
 
 @Component({
   selector: 'app-root',
@@ -18,6 +19,7 @@ import { GameItem, InstallSession } from './api.types';
 })
 export class App implements OnInit, OnDestroy {
   games: GameItem[] = [];
+  gameMetadata: Record<string, GameMetadata> = {};
   selectedInstaller: Record<string, string> = {};
   session: InstallSession | null = null;
   sessionLogs = '';
@@ -26,10 +28,15 @@ export class App implements OnInit, OnDestroy {
   errorMessage = '';
   remoteWarning = '';
   loading = false;
+  loadingMoreGames = false;
+  hasMoreGames = false;
+  gamesOffset = 0;
+  readonly gamesPageSize = 24;
+  totalGames = 0;
   pollTimer: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit(): void {
-    this.fetchGames();
+    this.fetchGames(true);
     this.restoreSession();
   }
 
@@ -58,16 +65,32 @@ export class App implements OnInit, OnDestroy {
     this.selectedInstaller[gameId] = value;
   }
 
-  async fetchGames(): Promise<void> {
-    this.loading = true;
+  async fetchGames(reset = false): Promise<void> {
+    if (reset) {
+      this.loading = true;
+      this.games = [];
+      this.gameMetadata = {};
+      this.gamesOffset = 0;
+      this.hasMoreGames = false;
+      this.totalGames = 0;
+    }
     this.status = 'Loading library...';
     this.errorMessage = '';
     this.remoteWarning = '';
 
     try {
-      const data = await fetchGamesApi();
-      this.games = data.games || [];
-      this.gameCountLabel = `${data.count} game groups (local + remote)`;
+      const data = await fetchGamesApi(this.gamesOffset, this.gamesPageSize, reset);
+      const incomingGames = data.games || [];
+
+      const existingIds = new Set(this.games.map((game) => game.id));
+      const dedupedIncoming = incomingGames.filter((game) => !existingIds.has(game.id));
+      this.games = reset ? dedupedIncoming : [...this.games, ...dedupedIncoming];
+
+      const total = data.total ?? data.count ?? this.games.length;
+      this.totalGames = total;
+      this.hasMoreGames = Boolean(data.hasMore);
+      this.gamesOffset = (data.offset ?? this.gamesOffset) + incomingGames.length;
+      this.gameCountLabel = `${this.games.length} / ${total} game groups loaded`;
 
       if (data.remoteStatus === 'unavailable') {
         this.remoteWarning = `Remote SSH unavailable: ${data.remoteError || 'unknown error'}`;
@@ -79,13 +102,48 @@ export class App implements OnInit, OnDestroy {
         }
       }
 
-      this.status = 'Library loaded';
+      this.loadGameMetadata(dedupedIncoming);
+
+      this.status = this.hasMoreGames ? 'Library partially loaded' : 'Library loaded';
     } catch (err: any) {
       this.errorMessage = err.message || 'Failed to load games';
       this.gameCountLabel = 'Failed to load';
       this.status = 'Error loading games';
     } finally {
       this.loading = false;
+      this.loadingMoreGames = false;
+    }
+  }
+
+  loadMoreGames(): void {
+    if (this.loading || this.loadingMoreGames || !this.hasMoreGames) return;
+    this.loadingMoreGames = true;
+    this.fetchGames(false);
+  }
+
+  private loadGameMetadata(games: GameItem[]): void {
+    for (const game of games) {
+      if (this.gameMetadata[game.id]) continue;
+      fetchGameMetadataApi(game.name)
+        .then((metadata) => {
+          this.gameMetadata = {
+            ...this.gameMetadata,
+            [game.id]: metadata
+          };
+        })
+        .catch(() => {
+          this.gameMetadata = {
+            ...this.gameMetadata,
+            [game.id]: {
+              name: game.name,
+              title: game.name,
+              description: null,
+              imageUrl: null,
+              sourceUrl: null,
+              provider: 'none'
+            }
+          };
+        });
     }
   }
 

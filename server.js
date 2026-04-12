@@ -3,6 +3,7 @@ const { createLogger } = require("./backend/logger");
 const { createDiscoveryService } = require("./backend/services/discovery-service");
 const { createRuntimeService } = require("./backend/services/runtime-service");
 const { createInstallService } = require("./backend/services/install-service");
+const { createGameMetadataService } = require("./backend/services/game-metadata-service");
 const { createApp } = require("./backend/create-app");
 
 const { envCandidates, loadedEnvPath, config, AUTO_NOVNC_WEB_PATH } = loadEnv();
@@ -17,9 +18,11 @@ if (loadedEnvPath) {
 const discoveryService = createDiscoveryService(config);
 const runtimeService = createRuntimeService(config, AUTO_NOVNC_WEB_PATH, log);
 const installService = createInstallService(config, discoveryService, runtimeService, log);
+const gameMetadataService = createGameMetadataService(log);
 
 const app = createApp({
   installService,
+  gameMetadataService,
   log,
   healthInfo: {
     autoNoVncPath: AUTO_NOVNC_WEB_PATH,

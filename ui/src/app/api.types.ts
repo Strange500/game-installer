@@ -15,6 +15,15 @@ export type GameItem = {
   installers: InstallerOption[];
 };
 
+export type GameMetadata = {
+  name: string;
+  title: string;
+  description: string | null;
+  imageUrl: string | null;
+  sourceUrl: string | null;
+  provider: 'wikipedia' | 'none';
+};
+
 export type InstallSession = {
   id: string;
   state: string;
@@ -32,6 +41,11 @@ export type InstallSession = {
 
 export type GamesApiResponse = {
   count: number;
+  total?: number;
+  pageCount?: number;
+  offset?: number;
+  limit?: number;
+  hasMore?: boolean;
   games: GameItem[];
   remoteStatus?: 'ok' | 'unavailable';
   remoteError?: string | null;

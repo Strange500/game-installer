@@ -3,13 +3,13 @@ const path = require("path");
 const { existsSync } = require("fs");
 const { createApiRouter } = require("./routes/api-routes");
 
-function createApp({ installService, log, healthInfo }) {
+function createApp({ installService, gameMetadataService, log, healthInfo }) {
   const app = express();
   app.use(express.json());
 
   app.use(express.static(path.join(__dirname, "..", "ui", "dist", "ui", "browser")));
 
-  app.use("/api", createApiRouter({ installService, log, healthInfo }));
+  app.use("/api", createApiRouter({ installService, gameMetadataService, log, healthInfo }));
 
   app.use((err, req, res, next) => {
     const status = err.status || 500;

@@ -1,4 +1,4 @@
-import { GamesApiResponse } from './api.types';
+import { GameMetadata, GamesApiResponse } from './api.types';
 
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(url, options);
@@ -9,8 +9,13 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   return payload;
 }
 
-export function fetchGamesApi(): Promise<GamesApiResponse> {
-  return request<GamesApiResponse>('/api/games');
+export function fetchGamesApi(offset = 0, limit = 24, refresh = false): Promise<GamesApiResponse> {
+  const params = new URLSearchParams({
+    offset: String(offset),
+    limit: String(limit),
+    refresh: String(refresh)
+  });
+  return request<GamesApiResponse>(`/api/games?${params.toString()}`);
 }
 
 export function startInstallApi(body: {
@@ -40,4 +45,8 @@ export function fetchActiveSessionApi(): Promise<{ session: any | null }> {
 
 export function fetchSessionLogsApi(sessionId: string): Promise<any> {
   return request(`/api/install/${sessionId}/logs`);
+}
+
+export function fetchGameMetadataApi(name: string): Promise<GameMetadata> {
+  return request(`/api/game-meta?name=${encodeURIComponent(name)}`);
 }

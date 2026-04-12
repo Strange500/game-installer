@@ -1,7 +1,7 @@
 const express = require("express");
 
 function createApiRouter(deps) {
-  const { installService, log, healthInfo } = deps;
+  const { installService, gameMetadataService, log, healthInfo } = deps;
   const router = express.Router();
 
   router.get("/health", (req, res) => {
@@ -17,8 +17,24 @@ function createApiRouter(deps) {
 
   router.get("/games", async (req, res, next) => {
     try {
-      const data = await installService.listGames();
+      const rawOffset = Number(req.query.offset);
+      const rawLimit = Number(req.query.limit);
+      const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
+      const limit = Number.isFinite(rawLimit) ? rawLimit : 24;
+      const refresh = String(req.query.refresh || "").toLowerCase() === "true";
+      const data = await installService.listGames({ offset, limit, refresh });
       res.json(data);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get("/game-meta", async (req, res, next) => {
+    try {
+      const name = String(req.query.name || "").trim();
+      if (!name) return res.status(400).json({ error: "Query parameter 'name' is required" });
+      const metadata = await gameMetadataService.getMetadata(name);
+      res.json({ name, ...metadata });
     } catch (err) {
       next(err);
     }

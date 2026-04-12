@@ -9,9 +9,26 @@ h1 { margin: 0.35rem 0 0.75rem; font-family: 'Space Grotesk', sans-serif; font-s
 .panel { margin-top: 1rem; border: 1px solid #d9dfec; border-radius: 16px; padding: 1rem; background: rgba(255,255,255,0.92); }
 .panel-header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 0.8rem; }
 .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; }
+.games-load-more { margin-top: 1rem; display: flex; justify-content: center; }
 .game-card { border: 1px solid #d9dfec; border-radius: 14px; padding: 0.9rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.game-media { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #eef2ff; display: flex; align-items: center; justify-content: center; }
+.game-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.game-media-fallback { background: linear-gradient(135deg, #1f2937, #111827); }
+.game-media-letter { color: #fff; font-size: 2rem; font-weight: 700; }
 .game-title { margin: 0; }
 .game-meta { margin: 0; font-size: 0.86rem; color: #5f6b85; }
+.game-description {
+	margin: 0;
+	color: #4b5563;
+	font-size: 0.86rem;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	min-height: 3.8em;
+}
+.game-source { font-size: 0.82rem; color: #0f766e; font-weight: 700; text-decoration: none; }
+.game-source:hover { text-decoration: underline; }
 .installer-label { font-size: 0.78rem; color: #5f6b85; }
 .installer-select { border: 1px solid #d9dfec; border-radius: 10px; padding: 0.5rem; font: inherit; }
 .btn { border: 0; border-radius: 10px; padding: 0.55rem 0.8rem; font: inherit; font-weight: 700; cursor: pointer; }

@@ -36,8 +36,8 @@ function createInstallService(config, discoveryService, runtimeService, log) {
     }
   }
 
-  async function listGames() {
-    return discoveryService.listGames(log);
+  async function listGames(options = {}) {
+    return discoveryService.listGames(log, options);
   }
 
   function getSession(sessionId) {
