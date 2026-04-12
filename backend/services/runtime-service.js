@@ -85,6 +85,19 @@ function createRuntimeService(config, autoNoVncPath, log) {
     return { child, outPath, errPath };
   }
 
+  function expandNoVncCandidatePaths(inputPath) {
+    if (!inputPath) return [];
+
+    const base = String(inputPath).replace(/\/$/, "");
+    return [
+      base,
+      path.join(base, "share", "novnc"),
+      path.join(base, "share", "noVNC"),
+      path.join(base, "share", "webapps", "novnc"),
+      path.join(base, "www")
+    ];
+  }
+
   async function waitForPortOpen(port, timeoutMs = 12000) {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
@@ -198,7 +211,7 @@ function createRuntimeService(config, autoNoVncPath, log) {
       logName: "x11vnc"
     });
 
-    const novncWebCandidates = [
+    const novncWebCandidatesRaw = [
       autoNoVncPath,
       NOVNC_WEB_PATH,
       "/run/current-system/sw/share/novnc",
@@ -209,6 +222,8 @@ function createRuntimeService(config, autoNoVncPath, log) {
       "/usr/share/noVNC",
       "/usr/share/webapps/novnc"
     ].filter(Boolean);
+
+    const novncWebCandidates = Array.from(new Set(novncWebCandidatesRaw.flatMap((candidate) => expandNoVncCandidatePaths(candidate))));
 
     let novncWebPath = null;
     for (const p of novncWebCandidates) {

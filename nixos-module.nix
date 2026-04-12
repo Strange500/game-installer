@@ -156,7 +156,7 @@ in
         ISOLATED_BASE_DISPLAY = toString cfg.isolatedBaseDisplay;
         ISOLATED_BASE_VNC_PORT = toString cfg.isolatedBaseVncPort;
         ISOLATED_BASE_NOVNC_PORT = toString cfg.isolatedBaseNoVncPort;
-        NOVNC_WEB_PATH = "${pkgs.novnc}/share/novnc";
+        NOVNC_WEB_PATH = "${pkgs.novnc}";
         XVFB_CMD = "${pkgs.xorg-server}/bin/Xvfb";
         X11VNC_CMD = "${pkgs.x11vnc}/bin/x11vnc";
         WEBSOCKIFY_CMD = "${pkgs.python3Packages.websockify}/bin/websockify";
