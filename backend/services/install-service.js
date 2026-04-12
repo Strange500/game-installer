@@ -7,6 +7,35 @@ function createInstallService(config, discoveryService, runtimeService, log) {
   const { LOCAL_INSTALL_BASE, LOCAL_LIBRARY_DIR, REMOTE_GAMES_DIR } = config;
   const sessions = new Map();
 
+  function isSubPath(rootPath, candidatePath) {
+    const normalizedRoot = path.resolve(rootPath);
+    const normalizedCandidate = path.resolve(candidatePath);
+    const relative = path.relative(normalizedRoot, normalizedCandidate);
+    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  }
+
+  function assertLocalPathAllowed(inputPath, fieldName) {
+    if (!inputPath) return;
+    const allowedRoot = path.resolve(LOCAL_LIBRARY_DIR);
+    const candidate = path.resolve(inputPath);
+    if (!isSubPath(allowedRoot, candidate)) {
+      const err = new Error(`${fieldName} must stay within LOCAL_LIBRARY_DIR`);
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  function assertRemotePathAllowed(inputPath, fieldName) {
+    if (!inputPath) return;
+    const normalizedRoot = path.posix.normalize(REMOTE_GAMES_DIR);
+    const normalizedInput = path.posix.normalize(inputPath);
+    if (!(normalizedInput === normalizedRoot || normalizedInput.startsWith(`${normalizedRoot}/`))) {
+      const err = new Error(`${fieldName} must stay within REMOTE_GAMES_DIR`);
+      err.status = 400;
+      throw err;
+    }
+  }
+
   async function listGames() {
     return discoveryService.listGames(log);
   }
@@ -60,6 +89,15 @@ function createInstallService(config, discoveryService, runtimeService, log) {
     }
 
     log("info", "Install request received", { sourceType, sourcePath, gameName, packageDir });
+
+    if (sourceType === "local") {
+      assertLocalPathAllowed(sourcePath, "sourcePath");
+      assertLocalPathAllowed(packageDir, "packageDir");
+    }
+    if (sourceType === "remote") {
+      assertRemotePathAllowed(sourcePath, "sourcePath");
+      assertRemotePathAllowed(packageDir, "packageDir");
+    }
 
     await fs.mkdir(LOCAL_INSTALL_BASE, { recursive: true });
 
@@ -140,8 +178,10 @@ function createInstallService(config, discoveryService, runtimeService, log) {
       } else if (sourceType === "local") {
         const isNestedPackage = normalizedPackageDir && path.resolve(normalizedPackageDir) !== path.resolve(LOCAL_LIBRARY_DIR);
         if (isNestedPackage) {
+          assertLocalPathAllowed(normalizedPackageDir, "packageDir");
           await discoveryService.copyDirectoryContents(path.resolve(normalizedPackageDir), installDir);
         } else {
+          assertLocalPathAllowed(sourcePath, "sourcePath");
           await fs.copyFile(path.resolve(sourcePath), localInstallerPath);
         }
       } else {
