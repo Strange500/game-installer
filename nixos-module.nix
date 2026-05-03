@@ -209,7 +209,6 @@ in
   config = lib.mkIf cfg.enable {
     programs.nix-ld.enable = true;
     programs.nix-ld.libraries = nixLdLibs;
-    programs.nix-ld.libraries32 = nixLdLibs32;
     users.groups = lib.mkIf (cfg.group == "game-installer") {
       game-installer = { };
     };
