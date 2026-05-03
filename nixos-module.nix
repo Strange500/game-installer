@@ -5,6 +5,99 @@ let
 
   packageDefault = self.packages.${pkgs.system}.default;
 
+  protonFhs = pkgs.buildFHSEnv {
+    name = "proton-fhs";
+    targetPkgs = pkgs: with pkgs; [
+      bash
+      coreutils
+      freetype
+      fontconfig
+      SDL2
+      alsa-lib
+      libpulseaudio
+      libxkbcommon
+      libdrm
+      mesa
+      libglvnd
+      vulkan-loader
+      zlib
+      openssl
+      libX11
+      libXext
+      libXrender
+      libXrandr
+      libXcursor
+      libXi
+      libXfixes
+      libXdamage
+      libXcomposite
+      libXinerama
+      libxcb
+      libXScrnSaver
+    ];
+    runScript = pkgs.writeShellScript "proton-fhs-run" ''
+      exec "$@"
+    '';
+  };
+
+  nixLdLibs = with pkgs; [
+    glibc
+    stdenv.cc.cc
+    freetype
+    fontconfig
+    SDL2
+    alsa-lib
+    libpulseaudio
+    libxkbcommon
+    libdrm
+    mesa
+    libglvnd
+    vulkan-loader
+    zlib
+    openssl
+    libX11
+    libXext
+    libXrender
+    libXrandr
+    libXcursor
+    libXi
+    libXfixes
+    libXdamage
+    libXcomposite
+    libXinerama
+    libxcb
+    libXScrnSaver
+  ];
+
+  nixLdLibs32 = with pkgs.pkgsi686Linux; [
+    glibc
+    stdenv.cc.cc
+    freetype
+    fontconfig
+    SDL2
+    alsa-lib
+    libpulseaudio
+    libxkbcommon
+    libdrm
+    mesa
+    libglvnd
+    vulkan-loader
+    zlib
+    openssl
+    libX11
+    libXext
+    libXrender
+    libXrandr
+    libXcursor
+    libXi
+    libXfixes
+    libXdamage
+    libXcomposite
+    libXinerama
+    libxcb
+    libXScrnSaver
+  ];
+
   runtimeTools = [
     pkgs.bash
     pkgs.python3Packages.websockify
@@ -12,6 +105,7 @@ let
     pkgs.xorg-server
     pkgs.openbox
     pkgs.proton-ge-bin.steamcompattool
+    protonFhs
   ];
 in
 {
@@ -113,6 +207,9 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    programs.nix-ld.enable = true;
+    programs.nix-ld.libraries = nixLdLibs;
+    programs.nix-ld.libraries32 = nixLdLibs32;
     users.groups = lib.mkIf (cfg.group == "game-installer") {
       game-installer = { };
     };
@@ -161,6 +258,11 @@ in
         X11VNC_CMD = "${pkgs.x11vnc}/bin/x11vnc";
         WEBSOCKIFY_CMD = "${pkgs.python3Packages.websockify}/bin/websockify";
         PROTON_PATH = "${pkgs.proton-ge-bin.steamcompattool}/proton";
+        PROTON_WRAPPER_CMD = "${protonFhs}/bin/proton-fhs";
+        NIX_LD = "${pkgs.stdenv.cc.bintools.dynamicLinker}";
+        NIX_LD_32 = "${pkgs.pkgsi686Linux.stdenv.cc.bintools.dynamicLinker}";
+        NIX_LD_LIBRARY_PATH = lib.makeLibraryPath nixLdLibs;
+        NIX_LD_LIBRARY_PATH_32 = lib.makeLibraryPath nixLdLibs32;
       } // cfg.environment;
 
       path = runtimeTools;

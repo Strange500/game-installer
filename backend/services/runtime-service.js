@@ -153,6 +153,9 @@ function createRuntimeService(config, autoNoVncPath, log) {
     const env = { ...process.env, ...extra, DISPLAY: displayName };
     delete env.WAYLAND_DISPLAY;
     env.XDG_SESSION_TYPE = "x11";
+    if (!env.SDL_VIDEODRIVER) env.SDL_VIDEODRIVER = "x11";
+    if (!env.LIBGL_ALWAYS_SOFTWARE) env.LIBGL_ALWAYS_SOFTWARE = "1";
+    if (!env.MESA_LOADER_DRIVER_OVERRIDE) env.MESA_LOADER_DRIVER_OVERRIDE = "llvmpipe";
     return env;
   }
 
@@ -207,7 +210,18 @@ function createRuntimeService(config, autoNoVncPath, log) {
 
     log("info", "Starting isolated session", { sessionId: session.id, displayName, vncPort, novncPort, runtimeDir });
 
-    const xvfb = createLoggedDetachedProcess(COMMANDS.xvfb, [displayName, "-screen", "0", ISOLATED_RESOLUTION, "-nolisten", "tcp"], {
+    const xvfb = createLoggedDetachedProcess(COMMANDS.xvfb, [
+      displayName,
+      "-screen",
+      "0",
+      ISOLATED_RESOLUTION,
+      "-nolisten",
+      "tcp",
+      "+extension",
+      "GLX",
+      "+render",
+      "-noreset"
+    ], {
       env: buildHeadlessX11Env(displayName),
       runtimeDir,
       logName: "xvfb"

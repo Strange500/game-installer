@@ -49,9 +49,103 @@
               runHook postInstall
             '';
           };
+
+          protonFhs = pkgs.buildFHSEnv {
+            name = "proton-fhs";
+            targetPkgs = pkgs: with pkgs; [
+              bash
+              coreutils
+              freetype
+              fontconfig
+              SDL2
+              alsa-lib
+              libpulseaudio
+              libxkbcommon
+              libdrm
+              mesa
+              libglvnd
+              vulkan-loader
+              zlib
+              openssl
+              libX11
+              libXext
+              libXrender
+              libXrandr
+              libXcursor
+              libXi
+              libXfixes
+              libXdamage
+              libXcomposite
+              libXinerama
+              libxcb
+              libXScrnSaver
+            ];
+            runScript = pkgs.writeShellScript "proton-fhs-run" ''
+              exec "$@"
+            '';
+          };
+
+          nixLdLibs = with pkgs; [
+            glibc
+            stdenv.cc.cc
+            freetype
+            fontconfig
+            SDL2
+            alsa-lib
+            libpulseaudio
+            libxkbcommon
+            libdrm
+            mesa
+            libglvnd
+            vulkan-loader
+            zlib
+            openssl
+            libX11
+            libXext
+            libXrender
+            libXrandr
+            libXcursor
+            libXi
+            libXfixes
+            libXdamage
+            libXcomposite
+            libXinerama
+            libxcb
+            libXScrnSaver
+          ];
+
+          nixLdLibs32 = with pkgs.pkgsi686Linux; [
+            glibc
+            stdenv.cc.cc
+            freetype
+            fontconfig
+            SDL2
+            alsa-lib
+            libpulseaudio
+            libxkbcommon
+            libdrm
+            mesa
+            libglvnd
+            vulkan-loader
+            zlib
+            openssl
+            libX11
+            libXext
+            libXrender
+            libXrandr
+            libXcursor
+            libXi
+            libXfixes
+            libXdamage
+            libXcomposite
+            libXinerama
+            libxcb
+            libXScrnSaver
+          ];
         in {
           packages.default = gameInstallerPackage;
           packages.game-installer = gameInstallerPackage;
+          packages.proton-fhs = protonFhs;
 
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
@@ -62,6 +156,7 @@
               openbox
               novnc
               proton-ge-bin
+              protonFhs
             ];
 
             shellHook = ''
@@ -71,6 +166,11 @@
                 export NOVNC_WEB_PATH="${pkgs.novnc}/share/webapps/novnc"
               fi
               export PROTON_PATH="${pkgs.proton-ge-bin.steamcompattool}/proton"
+              export PROTON_WRAPPER_CMD="${protonFhs}/bin/proton-fhs"
+              export NIX_LD="${pkgs.stdenv.cc.bintools.dynamicLinker}"
+              export NIX_LD_32="${pkgs.pkgsi686Linux.stdenv.cc.bintools.dynamicLinker}"
+              export NIX_LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath nixLdLibs}"
+              export NIX_LD_LIBRARY_PATH_32="${pkgs.lib.makeLibraryPath nixLdLibs32}"
               export PATH="$PWD/node_modules/.bin:$PATH"
               echo "Dev shell ready. Run: npm install && npm run dev"
             '';
@@ -88,6 +188,11 @@
                 export NOVNC_WEB_PATH="${pkgs.novnc}/share/webapps/novnc"
               fi
               export PROTON_PATH="${pkgs.proton-ge-bin.steamcompattool}/proton"
+              export PROTON_WRAPPER_CMD="${protonFhs}/bin/proton-fhs"
+              export NIX_LD="${pkgs.stdenv.cc.bintools.dynamicLinker}"
+              export NIX_LD_32="${pkgs.pkgsi686Linux.stdenv.cc.bintools.dynamicLinker}"
+              export NIX_LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath nixLdLibs}"
+              export NIX_LD_LIBRARY_PATH_32="${pkgs.lib.makeLibraryPath nixLdLibs32}"
               export PATH="${pkgs.python3Packages.websockify}/bin:${pkgs.x11vnc}/bin:${pkgs.xorg-server}/bin:${pkgs.openbox}/bin:${pkgs.proton-ge-bin.steamcompattool}:$PATH"
               mkdir -p "$LOCAL_INSTALL_BASE" "$SESSION_RUNTIME_BASE"
 

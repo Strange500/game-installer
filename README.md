@@ -208,6 +208,10 @@ STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.local/share/Steam
 
 On NixOS, you can skip manual package install by using `flake.nix` in this repo.
 
+This repo now configures `nix-ld` automatically in the NixOS module and exports
+`NIX_LD`, `NIX_LD_32`, and library paths in `nix run` so Proton can load its 32-bit
+and 64-bit dependencies out of the box.
+
 ## Debugging noVNC connection issues
 
 1. Set `LOG_LEVEL=debug` in `.env`.
