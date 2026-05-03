@@ -184,10 +184,27 @@ Install these packages on the server host:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y xvfb x11vnc websockify novnc openbox wine
+sudo apt-get install -y xvfb x11vnc websockify novnc openbox
 ```
 
-`openbox` and `wine` may be replaced based on your environment.
+`openbox` may be replaced based on your environment.
+
+### Proton requirements (Linux)
+
+Windows installers now run via Proton (Steam Proton or Proton-GE). Recommended options:
+
+- Install Steam and Proton (default path under `~/.local/share/Steam/steamapps/common/Proton*`).
+- Or enable automatic Proton-GE download by setting `PROTON_AUTO_INSTALL=true`.
+
+Optional env overrides (in `.env`):
+
+```bash
+PROTON_PATH=/home/user/.local/share/Steam/steamapps/common/Proton 8.0
+PROTON_AUTO_INSTALL=false
+PROTON_GEO_DOWNLOAD_URL=
+STEAM_COMPAT_DATA_BASE=/tmp/game-installer-sessions
+STEAM_COMPAT_CLIENT_INSTALL_PATH=/home/user/.local/share/Steam
+```
 
 On NixOS, you can skip manual package install by using `flake.nix` in this repo.
 
@@ -202,4 +219,14 @@ On NixOS, you can skip manual package install by using `flake.nix` in this repo.
 curl -s http://localhost:3000/api/install/<sessionId>/logs
 ```
 
-This helps identify whether x11vnc, websockify, or wine/installer failed.
+This helps identify whether x11vnc, websockify, or proton/installer failed.
+
+## Integration test (Proton)
+
+Run the minimal integration test that exercises Proton with a stub Windows batch file:
+
+```bash
+npm run test:integration
+```
+
+The test creates a temporary compatdata prefix, runs a `cmd /c` script via Proton, and verifies that `pfx/` exists under the prefix.

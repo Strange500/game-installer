@@ -61,7 +61,7 @@
               xorg-server
               openbox
               novnc
-              wineWow64Packages.stable
+              proton-ge-bin
             ];
 
             shellHook = ''
@@ -70,6 +70,7 @@
               if [ ! -d "$NOVNC_WEB_PATH" ]; then
                 export NOVNC_WEB_PATH="${pkgs.novnc}/share/webapps/novnc"
               fi
+              export PROTON_PATH="${pkgs.proton-ge-bin.steamcompattool}/proton"
               export PATH="$PWD/node_modules/.bin:$PATH"
               echo "Dev shell ready. Run: npm install && npm run dev"
             '';
@@ -86,7 +87,8 @@
               if [ ! -d "$NOVNC_WEB_PATH" ]; then
                 export NOVNC_WEB_PATH="${pkgs.novnc}/share/webapps/novnc"
               fi
-              export PATH="${pkgs.python3Packages.websockify}/bin:${pkgs.x11vnc}/bin:${pkgs.xorg-server}/bin:${pkgs.openbox}/bin:${pkgs.wineWow64Packages.stable}/bin:$PATH"
+              export PROTON_PATH="${pkgs.proton-ge-bin.steamcompattool}/proton"
+              export PATH="${pkgs.python3Packages.websockify}/bin:${pkgs.x11vnc}/bin:${pkgs.xorg-server}/bin:${pkgs.openbox}/bin:${pkgs.proton-ge-bin.steamcompattool}:$PATH"
               mkdir -p "$LOCAL_INSTALL_BASE" "$SESSION_RUNTIME_BASE"
 
               if [ -f "$PWD/server.js" ]; then

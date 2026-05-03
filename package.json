@@ -8,7 +8,8 @@
     "dev": "node server.js",
     "ui:install": "npm --prefix ui install",
     "ui:build": "npm --prefix ui run build",
-    "build": "npm run ui:build"
+    "build": "npm run ui:build",
+    "test:integration": "node backend/tests/integration/proton.test.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

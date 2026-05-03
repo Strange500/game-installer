@@ -29,7 +29,8 @@ const app = createApp({
     logLevel: config.LOG_LEVEL,
     serverHost: config.SERVER_HOST,
     publicHost: config.PUBLIC_HOST
-  }
+  },
+  config
 });
 
 app.listen(config.PORT, config.SERVER_HOST, () => {

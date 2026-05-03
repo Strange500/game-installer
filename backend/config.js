@@ -42,8 +42,22 @@ function loadEnv() {
     NOVNC_WEB_PATH: process.env.NOVNC_WEB_PATH || "",
     PUBLIC_HOST: process.env.PUBLIC_HOST || "",
     PUBLIC_PROTOCOL: process.env.PUBLIC_PROTOCOL || "",
-    LOG_LEVEL: process.env.LOG_LEVEL || "info"
+    LOG_LEVEL: process.env.LOG_LEVEL || "info",
+    PROTON_PATH: process.env.PROTON_PATH || "",
+    PROTON_AUTO_INSTALL: process.env.PROTON_AUTO_INSTALL || "false",
+    PROTON_GEO_DOWNLOAD_URL: process.env.PROTON_GEO_DOWNLOAD_URL || "",
+    PROTON_GE_DOWNLOAD_URL: process.env.PROTON_GE_DOWNLOAD_URL || "",
+    STEAM_COMPAT_DATA_BASE: process.env.STEAM_COMPAT_DATA_BASE || "",
+    STEAM_COMPAT_CLIENT_INSTALL_PATH: process.env.STEAM_COMPAT_CLIENT_INSTALL_PATH || "",
+    PROTON_WRAPPER_CMD: process.env.PROTON_WRAPPER_CMD || ""
   };
+
+  if (!config.STEAM_COMPAT_DATA_BASE) {
+    const fallbackCompat = process.env.HOME
+      ? path.join(process.env.HOME, ".local/share/steam/compatdata")
+      : "";
+    config.STEAM_COMPAT_DATA_BASE = config.SESSION_RUNTIME_BASE || fallbackCompat;
+  }
 
   const AUTO_NOVNC_WEB_PATH = firstExistingPath([
     config.NOVNC_WEB_PATH,

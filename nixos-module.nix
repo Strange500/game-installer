@@ -11,7 +11,7 @@ let
     pkgs.x11vnc
     pkgs.xorg-server
     pkgs.openbox
-    pkgs.wineWow64Packages.stable
+    pkgs.proton-ge-bin.steamcompattool
   ];
 in
 {
@@ -160,7 +160,7 @@ in
         XVFB_CMD = "${pkgs.xorg-server}/bin/Xvfb";
         X11VNC_CMD = "${pkgs.x11vnc}/bin/x11vnc";
         WEBSOCKIFY_CMD = "${pkgs.python3Packages.websockify}/bin/websockify";
-        WINE_CMD = "${pkgs.wineWow64Packages.stable}/bin/wine";
+        PROTON_PATH = "${pkgs.proton-ge-bin.steamcompattool}/proton";
       } // cfg.environment;
 
       path = runtimeTools;

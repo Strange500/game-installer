@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs/promises");
 const fsNative = require("fs");
 const { spawn } = require("child_process");
+const { ensureProtonAvailable, buildProtonEnv, buildProtonCommand, resolveProtonWrapper } = require("../lib/proton");
 
 function createRuntimeService(config, autoNoVncPath, log) {
   const {
@@ -20,7 +21,6 @@ function createRuntimeService(config, autoNoVncPath, log) {
     xvfb: process.env.XVFB_CMD || "Xvfb",
     x11vnc: process.env.X11VNC_CMD || "x11vnc",
     websockify: process.env.WEBSOCKIFY_CMD || "websockify",
-    wine: process.env.WINE_CMD || "wine",
     msiexec: process.env.MSIEXEC_CMD || "msiexec",
     cmd: process.env.CMD_CMD || "cmd",
     powershell: process.env.POWERSHELL_CMD || "powershell"
@@ -184,20 +184,26 @@ function createRuntimeService(config, autoNoVncPath, log) {
       if (!ok) throw new Error(`Missing required command '${tool.label}'. Install it to use isolated installer sessions.`);
     }
 
-    if (process.platform !== "win32") {
-      const ext = path.extname(session.localInstallerPath).toLowerCase();
-      if ([".exe", ".msi", ".bat", ".cmd"].includes(ext)) {
-        const wineExists = await commandExists(COMMANDS.wine);
-        if (!wineExists) throw new Error("Missing required command 'wine' for Windows installers on Linux host.");
-      }
+    const ext = path.extname(session.localInstallerPath).toLowerCase();
+    let protonExec = null;
+
+    if (process.platform !== "win32" && [".exe", ".msi", ".bat", ".cmd"].includes(ext)) {
+      protonExec = await ensureProtonAvailable(config, log);
     }
 
     const { display, vncPort, novncPort } = await reserveSessionSlots();
     const displayName = `:${display}`;
     const runtimeDir = path.join(SESSION_RUNTIME_BASE, session.id);
-    const winePrefix = path.join(runtimeDir, "wineprefix");
+    const compatBase = config.STEAM_COMPAT_DATA_BASE || SESSION_RUNTIME_BASE;
+    const compatDataPath = path.join(compatBase, session.id);
     await fs.mkdir(runtimeDir, { recursive: true });
-    await fs.mkdir(winePrefix, { recursive: true });
+    await fs.mkdir(compatDataPath, { recursive: true });
+
+    const protonWrapper = protonExec ? resolveProtonWrapper(config) : "";
+
+    if (protonExec) {
+      log("info", "Using Proton for installer", { protonExec, compatDataPath, protonWrapper: protonWrapper || null });
+    }
 
     log("info", "Starting isolated session", { sessionId: session.id, displayName, vncPort, novncPort, runtimeDir });
 
@@ -281,25 +287,28 @@ function createRuntimeService(config, autoNoVncPath, log) {
       throw new Error(`websockify/noVNC failed to start on port ${novncPort}. Check logs under ${runtimeDir}. websockify.err tail: ${websockifyErrTail.trim()}`);
     }
 
-    const ext = path.extname(session.localInstallerPath).toLowerCase();
-    const installerEnv = buildHeadlessX11Env(displayName, { WINEPREFIX: winePrefix });
+    const baseEnv = buildHeadlessX11Env(displayName);
+    const protonEnv = protonExec ? buildProtonEnv(compatDataPath, baseEnv, config, protonExec) : baseEnv;
 
     let installer;
     if (ext === ".msi" && process.platform === "win32") {
       installer = createLoggedDetachedProcess(COMMANDS.msiexec, ["/i", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".msi") {
-      installer = createLoggedDetachedProcess(COMMANDS.wine, ["msiexec", "/i", session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      const command = buildProtonCommand(protonExec, "msiexec", ["/i", session.localInstallerPath], protonWrapper);
+      installer = createLoggedDetachedProcess(command.command, command.args, { env: protonEnv, runtimeDir, logName: "installer" });
     } else if ((ext === ".bat" || ext === ".cmd") && process.platform === "win32") {
       installer = createLoggedDetachedProcess(COMMANDS.cmd, ["/c", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".bat" || ext === ".cmd") {
-      installer = createLoggedDetachedProcess(COMMANDS.wine, ["cmd", "/c", session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      const command = buildProtonCommand(protonExec, "cmd", ["/c", session.localInstallerPath], protonWrapper);
+      installer = createLoggedDetachedProcess(command.command, command.args, { env: protonEnv, runtimeDir, logName: "installer" });
     } else if (ext === ".ps1") {
       if (process.platform !== "win32") throw new Error("PowerShell installers are only supported on Windows hosts.");
       installer = createLoggedDetachedProcess(COMMANDS.powershell, ["-ExecutionPolicy", "Bypass", "-File", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".exe" && process.platform !== "win32") {
-      installer = createLoggedDetachedProcess(COMMANDS.wine, [session.localInstallerPath], { env: installerEnv, runtimeDir, logName: "installer" });
+      const command = buildProtonCommand(protonExec, session.localInstallerPath, [], protonWrapper);
+      installer = createLoggedDetachedProcess(command.command, command.args, { env: protonEnv, runtimeDir, logName: "installer" });
     } else {
-      installer = createLoggedDetachedProcess(session.localInstallerPath, [], { env: installerEnv, runtimeDir, logName: "installer" });
+      installer = createLoggedDetachedProcess(session.localInstallerPath, [], { env: protonEnv, runtimeDir, logName: "installer" });
     }
 
     session.runtime = {
@@ -307,6 +316,7 @@ function createRuntimeService(config, autoNoVncPath, log) {
       vncPort,
       novncPort,
       runtimeDir,
+      compatDataPath,
       wmCommandUsed,
       novncWebPath,
       novncEntryFile,
