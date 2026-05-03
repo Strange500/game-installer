@@ -150,6 +150,7 @@
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
               nodejs_22
+              python3
               python3Packages.websockify
               x11vnc
               xorg-server
@@ -171,7 +172,7 @@
               export NIX_LD_32="${pkgs.pkgsi686Linux.stdenv.cc.bintools.dynamicLinker}"
               export NIX_LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath nixLdLibs}"
               export NIX_LD_LIBRARY_PATH_32="${pkgs.lib.makeLibraryPath nixLdLibs32}"
-              export PATH="$PWD/node_modules/.bin:$PATH"
+              export PATH="${pkgs.python3}/bin:$PWD/node_modules/.bin:$PATH"
               echo "Dev shell ready. Run: npm install && npm run dev"
             '';
           };
@@ -193,7 +194,7 @@
               export NIX_LD_32="${pkgs.pkgsi686Linux.stdenv.cc.bintools.dynamicLinker}"
               export NIX_LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath nixLdLibs}"
               export NIX_LD_LIBRARY_PATH_32="${pkgs.lib.makeLibraryPath nixLdLibs32}"
-              export PATH="${pkgs.python3Packages.websockify}/bin:${pkgs.x11vnc}/bin:${pkgs.xorg-server}/bin:${pkgs.openbox}/bin:${pkgs.proton-ge-bin.steamcompattool}:$PATH"
+              export PATH="${pkgs.python3}/bin:${pkgs.python3Packages.websockify}/bin:${pkgs.x11vnc}/bin:${pkgs.xorg-server}/bin:${pkgs.openbox}/bin:${pkgs.proton-ge-bin.steamcompattool}:$PATH"
               mkdir -p "$LOCAL_INSTALL_BASE" "$SESSION_RUNTIME_BASE"
 
               if [ -f "$PWD/server.js" ]; then

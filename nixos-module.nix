@@ -100,6 +100,7 @@ let
 
   runtimeTools = [
     pkgs.bash
+    pkgs.python3
     pkgs.python3Packages.websockify
     pkgs.x11vnc
     pkgs.xorg-server
