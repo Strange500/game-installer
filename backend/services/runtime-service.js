@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs/promises");
 const fsNative = require("fs");
 const { spawn } = require("child_process");
-const { ensureProtonAvailable, buildProtonEnv, buildProtonCommand, resolveProtonWrapper } = require("../lib/proton");
+const { ensureProtonAvailable, buildProtonEnv, buildProtonCommand, resolveProtonWrapper, ensureSteamClientInstallPath } = require("../lib/proton");
 
 function createRuntimeService(config, autoNoVncPath, log) {
   const {
@@ -303,6 +303,9 @@ function createRuntimeService(config, autoNoVncPath, log) {
 
     const baseEnv = buildHeadlessX11Env(displayName);
     const protonEnv = protonExec ? buildProtonEnv(compatDataPath, baseEnv, config, protonExec) : baseEnv;
+    if (protonExec) {
+      await ensureSteamClientInstallPath(protonEnv);
+    }
 
     let installer;
     if (ext === ".msi" && process.platform === "win32") {

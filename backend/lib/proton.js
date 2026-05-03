@@ -369,7 +369,15 @@ function resolveSteamClientInstallPath(protonExec, config) {
     if (isDirectory(candidate)) return candidate;
   }
 
-  return "";
+  const fallbackBase = config?.SESSION_RUNTIME_BASE || config?.STEAM_COMPAT_DATA_BASE || os.tmpdir();
+  return path.join(fallbackBase, "steam-client");
+}
+
+async function ensureSteamClientInstallPath(env) {
+  const steamClientPath = env?.STEAM_COMPAT_CLIENT_INSTALL_PATH;
+  if (!steamClientPath) return;
+  const compatDir = path.join(steamClientPath, "steamapps", "compatdata");
+  await fs.mkdir(compatDir, { recursive: true });
 }
 
 function buildProtonEnv(prefixDir, envOverride = {}, config = {}, protonExec = "") {
@@ -417,6 +425,7 @@ async function runWithProton({
   const wrapperCmd = resolveProtonWrapper(config);
   const command = buildProtonCommand(protonExec, exePath, args, wrapperCmd);
   const env = buildProtonEnv(prefixDir, envOverride, config, protonExec);
+  await ensureSteamClientInstallPath(env);
 
   log("info", "Running via Proton", {
     command: command.command,
@@ -472,6 +481,7 @@ module.exports = {
   resolveProtonExecutable,
   ensureProtonAvailable,
   resolveProtonWrapper,
+  ensureSteamClientInstallPath,
   buildProtonEnv,
   buildProtonCommand,
   runWithProton
