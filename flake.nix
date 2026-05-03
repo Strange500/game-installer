@@ -80,6 +80,34 @@
               libxcb
               libXScrnSaver
             ];
+            multiPkgs = pkgs: with pkgs.pkgsi686Linux; [
+              glibc
+              stdenv.cc.cc
+              freetype
+              fontconfig
+              SDL2
+              alsa-lib
+              libpulseaudio
+              libxkbcommon
+              libdrm
+              mesa
+              libglvnd
+              vulkan-loader
+              zlib
+              openssl
+              libX11
+              libXext
+              libXrender
+              libXrandr
+              libXcursor
+              libXi
+              libXfixes
+              libXdamage
+              libXcomposite
+              libXinerama
+              libxcb
+              libXScrnSaver
+            ];
             runScript = pkgs.writeShellScript "proton-fhs-run" ''
               exec "$@"
             '';
