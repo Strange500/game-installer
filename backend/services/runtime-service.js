@@ -153,9 +153,28 @@ function createRuntimeService(config, autoNoVncPath, log) {
     const env = { ...process.env, ...extra, DISPLAY: displayName };
     delete env.WAYLAND_DISPLAY;
     env.XDG_SESSION_TYPE = "x11";
+
     if (!env.SDL_VIDEODRIVER) env.SDL_VIDEODRIVER = "x11";
     if (!env.LIBGL_ALWAYS_SOFTWARE) env.LIBGL_ALWAYS_SOFTWARE = "1";
     if (!env.MESA_LOADER_DRIVER_OVERRIDE) env.MESA_LOADER_DRIVER_OVERRIDE = "llvmpipe";
+
+    if (process.env.NIX_LD_LIBRARY_PATH) {
+      const existingLd = env.LD_LIBRARY_PATH ? `${env.LD_LIBRARY_PATH}:` : "";
+      env.LD_LIBRARY_PATH = `${existingLd}${process.env.NIX_LD_LIBRARY_PATH}`;
+    }
+    if (process.env.NIX_LD_LIBRARY_PATH_32) {
+      const existingLd32 = env.LD_LIBRARY_PATH_32 ? `${env.LD_LIBRARY_PATH_32}:` : "";
+      env.LD_LIBRARY_PATH_32 = `${existingLd32}${process.env.NIX_LD_LIBRARY_PATH_32}`;
+      const existingLd = env.LD_LIBRARY_PATH ? `${env.LD_LIBRARY_PATH}:` : "";
+      if (!env.LD_LIBRARY_PATH || !env.LD_LIBRARY_PATH.includes(process.env.NIX_LD_LIBRARY_PATH_32)) {
+        env.LD_LIBRARY_PATH = `${existingLd}${process.env.NIX_LD_LIBRARY_PATH_32}`;
+      }
+    }
+
+    if (!env.PROTON_NO_ESYNC) env.PROTON_NO_ESYNC = "1";
+    if (!env.PROTON_NO_FSYNC) env.PROTON_NO_FSYNC = "1";
+    if (!env.WINEDEBUG) env.WINEDEBUG = "-all";
+
     return env;
   }
 
@@ -303,26 +322,42 @@ function createRuntimeService(config, autoNoVncPath, log) {
 
     const baseEnv = buildHeadlessX11Env(displayName);
     const protonEnv = protonExec ? buildProtonEnv(compatDataPath, baseEnv, config, protonExec) : baseEnv;
+
     if (protonExec) {
+      // Ensure SDL_VIDEODRIVER is set to x11 for installers in Xvfb
+      if (!protonEnv.SDL_VIDEODRIVER) protonEnv.SDL_VIDEODRIVER = "x11";
+      // Avoid popups for Mono/Gecko in headless sessions
+      if (!protonEnv.WINEDLLOVERRIDES) protonEnv.WINEDLLOVERRIDES = "mscoree,mshtml=d";
       await ensureSteamClientInstallPath(protonEnv);
     }
+
+    log("debug", "Installer launch environment", {
+      sessionId: session.id,
+      DISPLAY: protonEnv.DISPLAY,
+      SDL_VIDEODRIVER: protonEnv.SDL_VIDEODRIVER,
+      LD_LIBRARY_PATH: protonEnv.LD_LIBRARY_PATH ? "set" : "unset",
+      NIX_LD_LIBRARY_PATH: process.env.NIX_LD_LIBRARY_PATH ? "set" : "unset"
+    });
 
     let installer;
     if (ext === ".msi" && process.platform === "win32") {
       installer = createLoggedDetachedProcess(COMMANDS.msiexec, ["/i", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".msi") {
       const command = buildProtonCommand(protonExec, "msiexec", ["/i", session.localInstallerPath], protonWrapper);
+      log("debug", "Installer command (msi)", { command });
       installer = createLoggedDetachedProcess(command.command, command.args, { env: protonEnv, runtimeDir, logName: "installer" });
     } else if ((ext === ".bat" || ext === ".cmd") && process.platform === "win32") {
       installer = createLoggedDetachedProcess(COMMANDS.cmd, ["/c", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".bat" || ext === ".cmd") {
       const command = buildProtonCommand(protonExec, "cmd", ["/c", session.localInstallerPath], protonWrapper);
+      log("debug", "Installer command (bat)", { command });
       installer = createLoggedDetachedProcess(command.command, command.args, { env: protonEnv, runtimeDir, logName: "installer" });
     } else if (ext === ".ps1") {
       if (process.platform !== "win32") throw new Error("PowerShell installers are only supported on Windows hosts.");
       installer = createLoggedDetachedProcess(COMMANDS.powershell, ["-ExecutionPolicy", "Bypass", "-File", session.localInstallerPath], { runtimeDir, logName: "installer" });
     } else if (ext === ".exe" && process.platform !== "win32") {
       const command = buildProtonCommand(protonExec, session.localInstallerPath, [], protonWrapper);
+      log("debug", "Installer command (exe)", { command });
       installer = createLoggedDetachedProcess(command.command, command.args, { env: protonEnv, runtimeDir, logName: "installer" });
     } else {
       installer = createLoggedDetachedProcess(session.localInstallerPath, [], { env: protonEnv, runtimeDir, logName: "installer" });

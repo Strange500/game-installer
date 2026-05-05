@@ -1,0 +1,22 @@
+Launching Proton WITHOUT wrapper...
+ProtonFixes[686733] WARN: Skipping fix execution. We are probably running a unit test.
+Traceback (most recent call last):
+  File "/nix/store/9rcmpchnqdivam5i2fpzjh27mlq8m4px-proton-ge-bin-GE-Proton10-34-steamcompattool/proton", line 2386, in <module>
+    g_session.init_session(sys.argv[1] != "runinprefix")
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/9rcmpchnqdivam5i2fpzjh27mlq8m4px-proton-ge-bin-GE-Proton10-34-steamcompattool/proton", line 2202, in init_session
+    g_compatdata.setup_prefix()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/nix/store/9rcmpchnqdivam5i2fpzjh27mlq8m4px-proton-ge-bin-GE-Proton10-34-steamcompattool/proton", line 1049, in setup_prefix
+    with self.prefix_lock:
+         ^^^^^^^^^^^^^^^^
+  File "/nix/store/jckwa9yy4aj2yq6r3c9x4rk0g95cvwm9-source/filelock.py", line 323, in __enter__
+    self.acquire()
+    ~~~~~~~~~~~~^^
+  File "/nix/store/jckwa9yy4aj2yq6r3c9x4rk0g95cvwm9-source/filelock.py", line 271, in acquire
+    self._acquire()
+    ~~~~~~~~~~~~~^^
+  File "/nix/store/jckwa9yy4aj2yq6r3c9x4rk0g95cvwm9-source/filelock.py", line 384, in _acquire
+    fd = os.open(self._lock_file, open_mode)
+FileNotFoundError: [Errno 2] No such file or directory: '/run/user/1000/game-installer-sessions/debug-no-wrapper/pfx.lock'
+Exit code: 1

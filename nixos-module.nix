@@ -12,6 +12,8 @@ let
       coreutils
       freetype
       fontconfig
+      harfbuzz
+      expat
       SDL2
       alsa-lib
       libpulseaudio
@@ -20,9 +22,19 @@ let
       mesa
       libglvnd
       vulkan-loader
+      libva
+      libvdpau
       zlib
       openssl
+      glib
+      graphite2
+      brotli
+      pcre2
+      libxcrypt
+      util-linux
       libX11
+      libXau
+      libXdmcp
       libXext
       libXrender
       libXrandr
@@ -34,23 +46,60 @@ let
       libXinerama
       libxcb
       libXScrnSaver
+      libXxf86vm
+      libXv
+      libXmu
+      libXaw
+      libXpm
+      libICE
+      libSM
+      libxml2
+      icu
+      libpng
+      libjpeg
+      gnutls
+      libgpg-error
+      libgcrypt
+      sqlite
+      libusb1
+      dbus
+      libkrb5
+      libGL
+      libGLU
+      libidn2
+      bzip2
+      attr
+      libcap
     ];
     multiPkgs = pkgs: with pkgs.pkgsi686Linux; [
       glibc
       stdenv.cc.cc
       freetype
       fontconfig
+      harfbuzz
+      expat
       SDL2
       alsa-lib
       libpulseaudio
       libxkbcommon
       libdrm
       mesa
+      mesa.drivers
       libglvnd
       vulkan-loader
+      libva
+      libvdpau
       zlib
       openssl
+      glib
+      graphite2
+      brotli
+      pcre2
+      libxcrypt
+      util-linux
       libX11
+      libXau
+      libXdmcp
       libXext
       libXrender
       libXrandr
@@ -62,6 +111,30 @@ let
       libXinerama
       libxcb
       libXScrnSaver
+      libXxf86vm
+      libXv
+      libXmu
+      libXaw
+      libXpm
+      libICE
+      libSM
+      libxml2
+      icu
+      libpng
+      libjpeg
+      gnutls
+      libgpg-error
+      libgcrypt
+      sqlite
+      libusb1
+      dbus
+      libkrb5
+      libGL
+      libGLU
+      libidn2
+      bzip2
+      attr
+      libcap
     ];
     runScript = pkgs.writeShellScript "proton-fhs-run" ''
       exec "$@"
@@ -73,6 +146,8 @@ let
     stdenv.cc.cc
     freetype
     fontconfig
+    harfbuzz
+    expat
     SDL2
     alsa-lib
     libpulseaudio
@@ -81,9 +156,19 @@ let
     mesa
     libglvnd
     vulkan-loader
+    libva
+    libvdpau
     zlib
     openssl
+    glib
+    graphite2
+    brotli
+    pcre2
+    libxcrypt
+    util-linux
     libX11
+    libXau
+    libXdmcp
     libXext
     libXrender
     libXrandr
@@ -95,6 +180,30 @@ let
     libXinerama
     libxcb
     libXScrnSaver
+    libXxf86vm
+    libXv
+    libXmu
+    libXaw
+    libXpm
+    libICE
+    libSM
+    libxml2
+    icu
+    libpng
+    libjpeg
+    gnutls
+    libgpg-error
+    libgcrypt
+    sqlite
+    libusb1
+    dbus
+    libkrb5
+    libGL
+    libGLU
+    libidn2
+    bzip2
+    attr
+    libcap
   ];
 
   nixLdLibs32 = with pkgs.pkgsi686Linux; [
@@ -102,17 +211,30 @@ let
     stdenv.cc.cc
     freetype
     fontconfig
+    harfbuzz
+    expat
     SDL2
     alsa-lib
     libpulseaudio
     libxkbcommon
     libdrm
     mesa
+    mesa.drivers
     libglvnd
     vulkan-loader
+    libva
+    libvdpau
     zlib
     openssl
+    glib
+    graphite2
+    brotli
+    pcre2
+    libxcrypt
+    util-linux
     libX11
+    libXau
+    libXdmcp
     libXext
     libXrender
     libXrandr
@@ -124,6 +246,30 @@ let
     libXinerama
     libxcb
     libXScrnSaver
+    libXxf86vm
+    libXv
+    libXmu
+    libXaw
+    libXpm
+    libICE
+    libSM
+    libxml2
+    icu
+    libpng
+    libjpeg
+    gnutls
+    libgpg-error
+    libgcrypt
+    sqlite
+    libusb1
+    dbus
+    libkrb5
+    libGL
+    libGLU
+    libidn2
+    bzip2
+    attr
+    libcap
   ];
 
   runtimeTools = [
