@@ -10,6 +10,28 @@ function firstExistingPath(candidates) {
   return "";
 }
 
+function parseEnvList(value) {
+  if (!value) return [];
+  const raw = String(value).trim();
+  if (!raw) return [];
+
+  if (raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item).trim()).filter(Boolean);
+      }
+    } catch {
+      // Fall through to delimiter-based parsing.
+    }
+  }
+
+  return raw
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function loadEnv() {
   const envCandidates = [path.join(__dirname, "..", ".env"), path.join(process.cwd(), ".env")];
   let loadedEnvPath = null;
@@ -32,6 +54,7 @@ function loadEnv() {
     SSH_PRIVATE_KEY_PATH: process.env.SSH_PRIVATE_KEY_PATH,
     SSH_AUTH_SOCK: process.env.SSH_AUTH_SOCK,
     REMOTE_GAMES_DIR: process.env.REMOTE_GAMES_DIR || "/mnt/data/media/torrents/game/windows",
+    REMOTE_GAMES_DIRS: parseEnvList(process.env.REMOTE_GAMES_DIRS),
     LOCAL_INSTALL_BASE: process.env.LOCAL_INSTALL_BASE || path.resolve(__dirname, "..", "installed-games"),
     LOCAL_LIBRARY_DIR: process.env.LOCAL_LIBRARY_DIR || path.resolve(__dirname, ".."),
     SESSION_RUNTIME_BASE: process.env.SESSION_RUNTIME_BASE || path.join(os.tmpdir(), "game-installer-sessions"),
@@ -51,6 +74,10 @@ function loadEnv() {
     STEAM_COMPAT_CLIENT_INSTALL_PATH: process.env.STEAM_COMPAT_CLIENT_INSTALL_PATH || "",
     PROTON_WRAPPER_CMD: process.env.PROTON_WRAPPER_CMD || ""
   };
+
+  if (!config.REMOTE_GAMES_DIRS?.length && config.REMOTE_GAMES_DIR) {
+    config.REMOTE_GAMES_DIRS = [config.REMOTE_GAMES_DIR];
+  }
 
   if (!config.STEAM_COMPAT_DATA_BASE) {
     const fallbackCompat = process.env.HOME

@@ -13,8 +13,14 @@ function createDiscoveryService(config) {
     SSH_PRIVATE_KEY_PATH,
     SSH_AUTH_SOCK,
     REMOTE_GAMES_DIR,
+    REMOTE_GAMES_DIRS,
     LOCAL_LIBRARY_DIR
   } = config;
+  const remoteRoots = (Array.isArray(REMOTE_GAMES_DIRS) && REMOTE_GAMES_DIRS.length
+    ? REMOTE_GAMES_DIRS
+    : (REMOTE_GAMES_DIR ? [REMOTE_GAMES_DIR] : []))
+    .map((dir) => String(dir || "").trim())
+    .filter(Boolean);
   const GAMES_CACHE_TTL_MS = 30_000;
   const REMOTE_SCAN_DEPTH = Number(process.env.REMOTE_SCAN_DEPTH || 2);
   const REMOTE_LIST_CONCURRENCY = Number(process.env.REMOTE_LIST_CONCURRENCY || 8);
@@ -43,6 +49,7 @@ function createDiscoveryService(config) {
   }
 
   function requireConfig() {
+    if (remoteRoots.length === 0) return false;
     const missing = [];
     if (!SSH_HOST) missing.push("SSH_HOST");
     if (!SSH_USERNAME) missing.push("SSH_USERNAME");
@@ -54,10 +61,17 @@ function createDiscoveryService(config) {
       error.status = 500;
       throw error;
     }
+
+    return true;
   }
 
   async function createSftpClient() {
-    requireConfig();
+    const ok = requireConfig();
+    if (!ok) {
+      const error = new Error("REMOTE_GAMES_DIR(S) not configured");
+      error.status = 500;
+      throw error;
+    }
     const client = new SftpClient();
     const cfg = {
       host: SSH_HOST,
@@ -235,14 +249,27 @@ function createDiscoveryService(config) {
     let remoteDurationMs = 0;
 
     try {
-      const remoteStartedAt = Date.now();
-      sftp = await createSftpClient();
-      remoteInstallers = await collectInstallers(sftp, REMOTE_GAMES_DIR, REMOTE_SCAN_DEPTH);
-      remoteDurationMs = Date.now() - remoteStartedAt;
+      if (remoteRoots.length > 0) {
+        const remoteStartedAt = Date.now();
+        sftp = await createSftpClient();
+        for (const remoteDir of remoteRoots) {
+          try {
+            const found = await collectInstallers(sftp, remoteDir, REMOTE_SCAN_DEPTH);
+            remoteInstallers = remoteInstallers.concat(found);
+          } catch (err) {
+            remoteError = err.message;
+            log("warn", "Remote games listing failed", {
+              remoteDir,
+              error: err.message
+            });
+          }
+        }
+        remoteDurationMs = Date.now() - remoteStartedAt;
+      }
     } catch (err) {
       remoteError = err.message;
       log("warn", "Remote games listing failed", {
-        remoteDir: REMOTE_GAMES_DIR,
+        remoteDirs: remoteRoots,
         error: err.message
       });
     } finally {
@@ -282,7 +309,8 @@ function createDiscoveryService(config) {
     });
 
     return {
-      remoteDir: REMOTE_GAMES_DIR,
+      remoteDir: remoteRoots[0] || null,
+      remoteDirs: remoteRoots,
       localDir: path.resolve(LOCAL_LIBRARY_DIR),
       remoteStatus: remoteError ? "unavailable" : "ok",
       remoteError,

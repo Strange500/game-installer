@@ -282,6 +282,21 @@ let
     pkgs.proton-ge-bin.steamcompattool
     protonFhs
   ];
+
+  localInstallBase = if cfg.localInstallBase != null
+    then cfg.localInstallBase
+    else "${cfg.dataDir}/installed-games";
+
+  envOverrides =
+    lib.optionalAttrs (cfg.sshHost != null) {
+      SSH_HOST = cfg.sshHost;
+    }
+    // lib.optionalAttrs (cfg.remoteGamesDirs != []) {
+      REMOTE_GAMES_DIRS = lib.concatStringsSep "," cfg.remoteGamesDirs;
+    }
+    // lib.optionalAttrs (cfg.remoteGamesDir != null && cfg.remoteGamesDirs == []) {
+      REMOTE_GAMES_DIR = cfg.remoteGamesDir;
+    };
 in
 {
   options.services.game-installer = {
@@ -325,6 +340,24 @@ in
       description = "Web server port (PORT).";
     };
 
+    sshHost = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Remote SSH host (SSH_HOST).";
+    };
+
+    remoteGamesDir = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Remote directory containing game installers (REMOTE_GAMES_DIR).";
+    };
+
+    remoteGamesDirs = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "Remote directories containing game installers (REMOTE_GAMES_DIRS).";
+    };
+
     openFirewall = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -359,6 +392,12 @@ in
       type = lib.types.str;
       default = "/var/lib/game-installer";
       description = "Persistent application data directory.";
+    };
+
+    localInstallBase = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Local directory where installer files are stored (LOCAL_INSTALL_BASE).";
     };
 
     runtimeDir = lib.mkOption {
@@ -399,7 +438,7 @@ in
 
     systemd.tmpfiles.rules = [
       "d ${cfg.dataDir} 0750 ${cfg.user} ${cfg.group} -"
-      "d ${cfg.dataDir}/installed-games 0750 ${cfg.user} ${cfg.group} -"
+      "d ${localInstallBase} 0750 ${cfg.user} ${cfg.group} -"
       "d ${cfg.runtimeDir} 0750 ${cfg.user} ${cfg.group} -"
     ];
 
@@ -422,7 +461,7 @@ in
         PORT = toString cfg.port;
         SERVER_HOST = cfg.host;
         LOCAL_LIBRARY_DIR = cfg.dataDir;
-        LOCAL_INSTALL_BASE = "${cfg.dataDir}/installed-games";
+        LOCAL_INSTALL_BASE = localInstallBase;
         SESSION_RUNTIME_BASE = cfg.runtimeDir;
         ISOLATED_BASE_DISPLAY = toString cfg.isolatedBaseDisplay;
         ISOLATED_BASE_VNC_PORT = toString cfg.isolatedBaseVncPort;
@@ -437,7 +476,7 @@ in
         NIX_LD_32 = "${pkgs.pkgsi686Linux.stdenv.cc.bintools.dynamicLinker}";
         NIX_LD_LIBRARY_PATH = lib.makeLibraryPath nixLdLibs;
         NIX_LD_LIBRARY_PATH_32 = lib.makeLibraryPath nixLdLibs32;
-      } // cfg.environment;
+      } // envOverrides // cfg.environment;
 
       path = runtimeTools;
 
@@ -455,7 +494,7 @@ in
         PrivateTmp = true;
         ProtectSystem = "strict";
         ProtectHome = true;
-        ReadWritePaths = [ cfg.dataDir cfg.runtimeDir ];
+        ReadWritePaths = [ cfg.dataDir cfg.runtimeDir localInstallBase ];
       } // lib.optionalAttrs (cfg.envFile != null) {
         EnvironmentFile = cfg.envFile;
       };

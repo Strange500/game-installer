@@ -18,6 +18,9 @@ cp .env.example .env
 
 Update `.env` with real SSH credentials.
 
+To scan multiple remote folders, set `REMOTE_GAMES_DIRS` (comma-separated or JSON array). When set,
+it overrides `REMOTE_GAMES_DIR`.
+
 Important: place `.env` in this project root (`games/.env`) because the backend reads from current directory.
 
 ## 2) Run
@@ -106,6 +109,7 @@ Example `flake.nix` (host config):
               PUBLIC_HOST = "192.168.0.138";
               PUBLIC_PROTOCOL = "http";
               REMOTE_GAMES_DIR = "/mnt/data/media/torrents/game/windows";
+              LOCAL_INSTALL_BASE = "/var/lib/game-installer/installed-games";
               LOG_LEVEL = "info";
             };
           };
@@ -115,6 +119,10 @@ Example `flake.nix` (host config):
   };
 }
 ```
+
+You can also set `services.game-installer.sshHost`, `services.game-installer.remoteGamesDir`,
+`services.game-installer.remoteGamesDirs`, and `services.game-installer.localInstallBase` to have
+the module inject `SSH_HOST`, `REMOTE_GAMES_DIR(S)`, and `LOCAL_INSTALL_BASE` for you.
 
 The module now runs an immutable packaged app (built with `buildNpmPackage`) and starts `server.js` directly from the Nix store, so startup does not run `npm ci` and avoids runtime permission issues.
 

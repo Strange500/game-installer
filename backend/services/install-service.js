@@ -4,7 +4,12 @@ const { existsSync } = require("fs");
 const crypto = require("crypto");
 
 function createInstallService(config, discoveryService, runtimeService, log) {
-  const { LOCAL_INSTALL_BASE, LOCAL_LIBRARY_DIR, REMOTE_GAMES_DIR } = config;
+  const { LOCAL_INSTALL_BASE, LOCAL_LIBRARY_DIR, REMOTE_GAMES_DIR, REMOTE_GAMES_DIRS } = config;
+  const allowedRemoteRoots = (Array.isArray(REMOTE_GAMES_DIRS) && REMOTE_GAMES_DIRS.length
+    ? REMOTE_GAMES_DIRS
+    : (REMOTE_GAMES_DIR ? [REMOTE_GAMES_DIR] : []))
+    .map((dir) => String(dir || "").trim())
+    .filter(Boolean);
   const sessions = new Map();
   const registryPath = path.join(LOCAL_INSTALL_BASE, ".installed-games.json");
   let installedRegistry = [];
@@ -156,10 +161,20 @@ function createInstallService(config, discoveryService, runtimeService, log) {
 
   function assertRemotePathAllowed(inputPath, fieldName) {
     if (!inputPath) return;
-    const normalizedRoot = path.posix.normalize(REMOTE_GAMES_DIR);
     const normalizedInput = path.posix.normalize(inputPath);
-    if (!(normalizedInput === normalizedRoot || normalizedInput.startsWith(`${normalizedRoot}/`))) {
-      const err = new Error(`${fieldName} must stay within REMOTE_GAMES_DIR`);
+    if (allowedRemoteRoots.length === 0) {
+      const err = new Error("REMOTE_GAMES_DIR(S) not configured");
+      err.status = 500;
+      throw err;
+    }
+
+    const matchesRoot = allowedRemoteRoots.some((root) => {
+      const normalizedRoot = path.posix.normalize(root);
+      return normalizedInput === normalizedRoot || normalizedInput.startsWith(`${normalizedRoot}/`);
+    });
+
+    if (!matchesRoot) {
+      const err = new Error(`${fieldName} must stay within REMOTE_GAMES_DIR(S)`);
       err.status = 400;
       throw err;
     }
@@ -269,7 +284,9 @@ function createInstallService(config, discoveryService, runtimeService, log) {
       if (sourceType === "remote") {
         const sftp = await discoveryService.createSftpClient();
         try {
-          const isNestedPackage = normalizedPackageDir && normalizedPackageDir !== REMOTE_GAMES_DIR;
+          const normalizedPackage = normalizedPackageDir ? path.posix.normalize(normalizedPackageDir) : "";
+          const isNestedPackage = normalizedPackage
+            && !allowedRemoteRoots.some((root) => path.posix.normalize(root) === normalizedPackage);
           if (isNestedPackage) {
             const files = await discoveryService.listRemoteFilesRecursive(sftp, normalizedPackageDir, 8);
             const totalBytes = files.reduce((sum, item) => sum + Number(item.size || 0), 0);
