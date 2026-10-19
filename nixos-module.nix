@@ -3,7 +3,7 @@
 let
   cfg = config.services.game-installer;
 
-  packageDefault = self.packages.${pkgs.system}.default;
+  packageDefault = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
   protonFhs = pkgs.buildFHSEnv {
     name = "proton-fhs";
@@ -84,7 +84,6 @@ let
       libxkbcommon
       libdrm
       mesa
-      mesa.drivers
       libglvnd
       vulkan-loader
       libva
@@ -219,7 +218,6 @@ let
     libxkbcommon
     libdrm
     mesa
-    mesa.drivers
     libglvnd
     vulkan-loader
     libva
@@ -305,7 +303,7 @@ in
     package = lib.mkOption {
       type = lib.types.package;
       default = packageDefault;
-      defaultText = lib.literalExpression "self.packages.${pkgs.system}.default";
+      defaultText = lib.literalExpression "self.packages.${pkgs.stdenv.hostPlatform.system}.default";
       description = "Packaged game-installer application.";
     };
 
