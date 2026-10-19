@@ -129,7 +129,6 @@
               libxkbcommon
               libdrm
               mesa
-              mesa.drivers
               libglvnd
               vulkan-loader
               libva
@@ -264,7 +263,6 @@
             libxkbcommon
             libdrm
             mesa
-            mesa.drivers
             libglvnd
             vulkan-loader
             libva
